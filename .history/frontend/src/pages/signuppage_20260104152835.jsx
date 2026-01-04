@@ -1,20 +1,10 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, Check, ArrowRight } from 'lucide-react';
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from 'framer-motion';
-import { authAPI } from '../services/api';
 
 const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   // --- Animation Variants ---
   const fadeInUp = {
@@ -43,56 +33,6 @@ const SignupPage = () => {
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    // Clear error when user starts typing
-    if (error) setError('');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const data = await authAPI.signup(
-        formData.username,
-        formData.email,
-        formData.password
-      );
-      
-      // Store tokens
-      localStorage.setItem('access_token', data.access);
-      localStorage.setItem('refresh_token', data.refresh);
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
-    } catch (err) {
-      setError(
-        err.response?.data?.error || 
-        err.response?.data?.username?.[0] || 
-        'Signup failed. Please try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#FFFCF8] text-gray-800 font-sans flex relative overflow-hidden selection:bg-orange-100 selection:text-orange-600">
       
@@ -109,7 +49,7 @@ const SignupPage = () => {
         {/* Logo */}
         <motion.div variants={fadeInUp} className="flex items-center gap-3 mb-10">
           <div className="w-8 h-8 rounded-full bg-[#FF7F40] shadow-lg shadow-orange-500/20"></div>
-          <span className="text-lg font-medium tracking-tight text-gray-900">LeadFlow</span>
+          <span className="text-lg font-medium tracking-tight text-gray-900">Logo</span>
         </motion.div>
 
         <div className="max-w-md w-full mx-auto">
@@ -120,33 +60,18 @@ const SignupPage = () => {
             Start your 14-day free trial today.
           </motion.p>
 
-          {/* Error Message */}
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-4 text-sm"
-            >
-              {error}
-            </motion.div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Username */}
+          <form className="space-y-4">
+            {/* Full Name */}
             <motion.div variants={fadeInUp}>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
               <div className="group relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <User className="h-5 w-5 text-gray-400 group-focus-within:text-[#FF7F40] transition-colors" />
                 </div>
                 <input 
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  required
+                  type="text" 
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF7F40] focus:ring-4 focus:ring-orange-100 outline-none transition-all bg-white/50 hover:bg-white"
-                  placeholder="johndoe"
+                  placeholder="John Doe"
                 />
               </div>
             </motion.div>
@@ -159,11 +84,7 @@ const SignupPage = () => {
                   <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-[#FF7F40] transition-colors" />
                 </div>
                 <input 
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
+                  type="email" 
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF7F40] focus:ring-4 focus:ring-orange-100 outline-none transition-all bg-white/50 hover:bg-white"
                   placeholder="name@company.com"
                 />
@@ -178,11 +99,7 @@ const SignupPage = () => {
                   <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-[#FF7F40] transition-colors" />
                 </div>
                 <input 
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
+                  type={showPassword ? "text" : "password"} 
                   className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:border-[#FF7F40] focus:ring-4 focus:ring-orange-100 outline-none transition-all bg-white/50 hover:bg-white"
                   placeholder="Create a password"
                 />
@@ -196,36 +113,15 @@ const SignupPage = () => {
               </div>
             </motion.div>
 
-            {/* Confirm Password */}
-            <motion.div variants={fadeInUp}>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
-              <div className="group relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-[#FF7F40] transition-colors" />
-                </div>
-                <input 
-                  type={showPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#FF7F40] focus:ring-4 focus:ring-orange-100 outline-none transition-all bg-white/50 hover:bg-white"
-                  placeholder="Confirm your password"
-                />
-              </div>
-            </motion.div>
-
             {/* Submit Button */}
             <motion.button 
-              type="submit"
-              disabled={loading}
               variants={fadeInUp}
-              whileHover={{ scale: loading ? 1 : 1.01 }}
-              whileTap={{ scale: loading ? 1 : 0.98 }}
-              className="w-full bg-[#FF7F40] hover:bg-[#E66A2E] text-white font-medium py-3.5 rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 group mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-[#FF7F40] hover:bg-[#E66A2E] text-white font-medium py-3.5 rounded-xl transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 group mt-4"
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
-              {!loading && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+              Create Account
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </motion.button>
           </form>
 
