@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, TrendingUp, Users, BarChart3, Inbox, Settings, Menu, X, Search, Bell, Plus, DollarSign, Target, PieChart, Briefcase, ChevronUp, TrendingDown } from 'lucide-react';
-import {LeadForm} from '../components/index';
-import leadAPI from '../services/api';
+import LeadForm from '..index/components/index';
+import { leadAPI } from './services/api';
 
 export default function C_Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

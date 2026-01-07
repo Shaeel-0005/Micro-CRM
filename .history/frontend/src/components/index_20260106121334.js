@@ -4,5 +4,4 @@ import LeadForm from "./Leadform";
 
 export{
     Hero,
-    LeadForm
 }
