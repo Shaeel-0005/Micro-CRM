@@ -548,18 +548,12 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
 
 ## 👨‍💻 Author
 
 **Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/yourprofile)
-- Email: your.email@example.com
+- LinkedIn: [Your LinkedIn](https://linkedin.com/in/shaeelshahid)
+- Email: shaeel.shahid.se@gmail.com
 
 ---
 
@@ -574,7 +568,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email your.email@example.com or open an issue on GitHub.
+For support, email shaeel.shahid.se@gmail.com.
 
 ---
 
@@ -584,6 +578,4 @@ For support, email your.email@example.com or open an issue on GitHub.
 **Status:** 🟢 Active Development  
 **Last Updated:** January 2026
 
----
 
-**Built with ❤️ using Django & React**
