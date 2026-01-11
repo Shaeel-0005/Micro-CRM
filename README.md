@@ -7,7 +7,10 @@ A modern, lightweight CRM system built with Django REST Framework and React. Per
 ![React](https://img.shields.io/badge/React-18-61DAFB)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)
 
+<img width="1901" height="969" alt="image" src="https://github.com/user-attachments/assets/3e7089ae-d197-4822-8814-4d3c9f8b67fb" />
+
 ---
+
 
 ## 📋 Table of Contents
 
