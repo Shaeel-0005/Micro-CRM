@@ -1,11 +1,14 @@
+/**
+ * services/api.js
+ * Axios instance + Auth API only.
+ * Lead operations live in leadsService.js — do not add them here.
+ */
+
 import axios from 'axios';
 
 const API_URL = 'http://localhost:8000/api';
 
-// Note: All lead endpoints are now at /api/leads/
-// Example: POST /api/leads/ to create a lead
-
-// Create axios instance
+// Base axios instance
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -13,7 +16,8 @@ const api = axios.create({
   },
 });
 
-// Add token to requests automatically
+// ─── Request interceptor ──────────────────────────────────────────────────────
+// Attach JWT access token to every request automatically
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -22,12 +26,11 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Handle token refresh on 401
+// ─── Response interceptor ─────────────────────────────────────────────────────
+// On 401: attempt silent token refresh. On failure: force logout.
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -44,11 +47,11 @@ api.interceptors.response.use(
 
         const { access } = response.data;
         localStorage.setItem('access_token', access);
-
         originalRequest.headers.Authorization = `Bearer ${access}`;
+
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, logout user
+        // Refresh token expired or invalid — clear session and redirect
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         window.location.href = '/login';
@@ -60,18 +63,11 @@ api.interceptors.response.use(
   }
 );
 
-// Auth API
+// ─── Auth API ─────────────────────────────────────────────────────────────────
 export const authAPI = {
   signup: async (username, email, password) => {
-    try {
-      console.log('Signup attempt:', { username, email });
-      const response = await api.post('/auth/signup/', { username, email, password });
-      console.log('Signup successful:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Signup error:', error.response?.data || error.message);
-      throw error;
-    }
+    const response = await api.post('/auth/signup/', { username, email, password });
+    return response.data;
   },
 
   login: async (username, password) => {
@@ -88,33 +84,10 @@ export const authAPI = {
     return !!localStorage.getItem('access_token');
   },
 
-  getCurrentUser: async () => {
-    const response = await api.get('/auth/user/');
-    return response.data;
-  },
-};
-
-// Leads API (for later)
-export const leadsAPI = {
-  getAll: async () => {
-    const response = await api.get('/leads/');
-    return response.data;
-  },
-
-  create: async (leadData) => {
-    const response = await api.post('/leads/', leadData);
-    return response.data;
-  },
-
-  update: async (id, leadData) => {
-    const response = await api.put(`/leads/${id}/`, leadData);
-    return response.data;
-  },
-
-  delete: async (id) => {
-    const response = await api.delete(`/leads/${id}/`);
-    return response.data;
-  },
+  // getCurrentUser: async () => {
+  //   const response = await api.get('/auth/user/');
+  //   return response.data;
+  // },
 };
 
 export default api;

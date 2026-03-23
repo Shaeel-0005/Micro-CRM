@@ -1,30 +1,39 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { Home, Login, Signup } from "./pages";
-import { Layout, Overview, Contacts } from "./components";
+/**
+ * App.jsx
+ * PrivateRoute wraps all dashboard routes.
+ * Public routes (/, /login, /signup) remain open.
+ */
 
-function App() {
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Home, Login, Signup } from './pages';
+import { Layout, Overview, Contacts, Settings, Pipeline, Reports, Inbox } from './components';
+import PrivateRoute from './components/PrivateRoute';
+
+export default function App() {
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
+      {/* ── Public routes ───────────────────────────────────────────────── */}
+      <Route path="/"       element={<Home />} />
+      <Route path="/login"  element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      
-      {/* Protected routes - Layout wraps all dashboard pages */}
-      <Route element={<Layout />}>
-        <Route path="/dashboard" element={<Overview />} />
-        <Route path="/contacts" element={<Contacts />} />
-        <Route path="/pipeline" element={<div>Pipeline Page Coming Soon</div>} />
-        <Route path="/reports" element={<div>Reports Page Coming Soon</div>} />
-        <Route path="/inbox" element={<div>Inbox Page Coming Soon</div>} />
-        <Route path="/settings" element={<div>Settings Page Coming Soon</div>} />
+
+      {/* ── Protected routes ────────────────────────────────────────────── */}
+      {/* PrivateRoute checks auth. If not logged in → /login              */}
+      {/* Layout renders the sidebar + header shell via <Outlet />         */}
+      <Route element={<PrivateRoute />}>
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Overview />} />
+          <Route path="/contacts"  element={<Contacts />} />
+          <Route path="/pipeline" element={<Pipeline />} />
+<Route path="/reports"  element={<Reports />} />
+<Route path="/inbox"    element={<Inbox />} />
+         <Route path="/settings" element={<Settings />} />
+        </Route>
       </Route>
-      
-      {/* Catch all - redirect to dashboard */}
+
+      {/* ── Fallback ────────────────────────────────────────────────────── */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
-
-export default App;
