@@ -231,7 +231,7 @@ export default function Layout() {
               />
             </div>
             
-            <button className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
+            <button NavLink to="/inbox" className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
               <Bell className="h-5 w-5" />
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#FF7F40] border border-white" />
             </button>
