@@ -1,147 +1,134 @@
 """
 backend/apps/leads/views.py
-Day 4: Complete CRUD API endpoints using ViewSets
+Day 8: Added LeadActivityViewSet for nested activity endpoints
 """
 
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
-from .models import Lead
+from django.shortcuts import get_object_or_404
+
+from .models import Lead, LeadActivity
 from .serializers import (
-    LeadListSerializer, 
+    LeadListSerializer,
     LeadDetailSerializer,
-    LeadCreateSerializer
+    LeadCreateSerializer,
+    LeadActivitySerializer,
 )
 
 
+# ─── Lead ViewSet ─────────────────────────────────────────────────────────────
+
 class LeadViewSet(viewsets.ModelViewSet):
     """
-    Complete CRUD operations for leads
-    
-    list: GET /api/leads/ - List all leads
-    create: POST /api/leads/ - Create new lead
-    retrieve: GET /api/leads/{id}/ - Get single lead
-    update: PUT /api/leads/{id}/ - Update lead
-    partial_update: PATCH /api/leads/{id}/ - Partial update
-    destroy: DELETE /api/leads/{id}/ - Delete lead
+    Complete CRUD operations for leads.
+
+    list:           GET  /api/leads/
+    create:         POST /api/leads/
+    retrieve:       GET  /api/leads/{id}/
+    update:         PUT  /api/leads/{id}/
+    partial_update: PATCH /api/leads/{id}/
+    destroy:        DELETE /api/leads/{id}/
+    stats:          GET  /api/leads/stats/
+    recent:         GET  /api/leads/recent/
     """
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'email', 'company']
-    ordering_fields = ['created_at', 'name', 'company', 'status']
-    ordering = ['-created_at']  # Default ordering
-    
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ['name', 'email', 'company']
+    ordering_fields    = ['created_at', 'name', 'company', 'status']
+    ordering           = ['-created_at']
+
     def get_queryset(self):
-        """
-        Filter leads to only show user's own leads
-        Supports filtering by status and source
-        """
+        """Filter leads to only show the authenticated user's own leads."""
         queryset = Lead.objects.filter(owner=self.request.user)
-        
-        # Filter by status
-        status_filter = self.request.query_params.get('status', None)
+
+        status_filter = self.request.query_params.get('status')
         if status_filter:
             queryset = queryset.filter(status=status_filter)
-        
-        # Filter by source
-        source_filter = self.request.query_params.get('source', None)
+
+        source_filter = self.request.query_params.get('source')
         if source_filter:
             queryset = queryset.filter(source=source_filter)
-        
+
         return queryset
-    
+
     def get_serializer_class(self):
-        """Use different serializers for different actions"""
         if self.action == 'list':
             return LeadListSerializer
         elif self.action == 'create':
             return LeadCreateSerializer
         return LeadDetailSerializer
-    
+
     def create(self, request, *args, **kwargs):
-        """
-        Create a new lead
-        POST /api/leads/
-        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        
-        # Return full lead details using detail serializer
-        lead = serializer.instance
-        detail_serializer = LeadDetailSerializer(lead)
-        
-        return Response(
-            detail_serializer.data,
-            status=status.HTTP_201_CREATED
+        detail_serializer = LeadDetailSerializer(
+            serializer.instance,
+            context={'request': request}
         )
-    
-    def list(self, request, *args, **kwargs):
-        """
-        List all leads with optional filtering
-        GET /api/leads/
-        Query params:
-        - status: filter by status (new, contacted, in_progress, won, lost)
-        - source: filter by source
-        - search: search in name, email, company
-        - ordering: order by field (e.g., -created_at)
-        """
-        queryset = self.filter_queryset(self.get_queryset())
-        
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-    
-    def retrieve(self, request, *args, **kwargs):
-        """
-        Get single lead details
-        GET /api/leads/{id}/
-        """
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-    
+        return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """
-        Get lead statistics
-        GET /api/leads/stats/
-        """
+        """GET /api/leads/stats/ — counts by status and source."""
         queryset = self.get_queryset()
-        
-        stats = {
+        data = {
             'total': queryset.count(),
             'by_status': {
-                'new': queryset.filter(status='new').count(),
-                'contacted': queryset.filter(status='contacted').count(),
+                'new':         queryset.filter(status='new').count(),
+                'contacted':   queryset.filter(status='contacted').count(),
                 'in_progress': queryset.filter(status='in_progress').count(),
-                'won': queryset.filter(status='won').count(),
-                'lost': queryset.filter(status='lost').count(),
+                'won':         queryset.filter(status='won').count(),
+                'lost':        queryset.filter(status='lost').count(),
             },
-            'by_source': {}
+            'by_source': {},
         }
-        
-        # Get source counts
-        sources = queryset.values_list('source', flat=True).distinct()
-        for source in sources:
-            stats['by_source'][source] = queryset.filter(source=source).count()
-        
-        return Response(stats)
-    
+        for source in queryset.values_list('source', flat=True).distinct():
+            data['by_source'][source] = queryset.filter(source=source).count()
+
+        return Response(data)
+
     @action(detail=False, methods=['get'])
     def recent(self, request):
-        """
-        Get recent leads (last 10)
-        GET /api/leads/recent/
-        """
-        queryset = self.get_queryset()[:10]
+        """GET /api/leads/recent/ — last 10 leads."""
+        queryset   = self.get_queryset()[:10]
         serializer = LeadListSerializer(queryset, many=True)
         return Response(serializer.data)
-    
-    
+
+
+# ─── Lead Activity ViewSet ────────────────────────────────────────────────────
+
+class LeadActivityViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for activities nested under a lead.
+
+    list:    GET    /api/leads/{lead_id}/activities/
+    create:  POST   /api/leads/{lead_id}/activities/
+    destroy: DELETE /api/leads/{lead_id}/activities/{id}/
+
+    Update is intentionally excluded — activities are immutable once logged.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class   = LeadActivitySerializer
+    http_method_names  = ['get', 'post', 'delete', 'head', 'options']
+
+    def _get_lead(self):
+        """
+        Fetch the parent lead — must belong to the authenticated user.
+        Returns 404 if the lead doesn't exist or belongs to another user.
+        """
+        return get_object_or_404(
+            Lead,
+            pk=self.kwargs['lead_pk'],
+            owner=self.request.user
+        )
+
+    def get_queryset(self):
+        lead = self._get_lead()
+        return LeadActivity.objects.filter(lead=lead)
+
+    def perform_create(self, serializer):
+        lead = self._get_lead()
+        serializer.save(lead=lead)
