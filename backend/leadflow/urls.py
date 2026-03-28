@@ -18,5 +18,7 @@ urlpatterns = [
     # Reminders API endpoints (Day 9)
     path('api/reminders/', include('apps.reminders.urls')),
     
+    path('api/analytics/', include('apps.analytics.urls')),
+    
   path('api/users/', include('apps.users.urls')),
 ]
