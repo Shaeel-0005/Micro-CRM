@@ -6,7 +6,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'https://leadflow-backend.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 // Base axios instance
 const api = axios.create({
@@ -88,6 +88,9 @@ export const authAPI = {
   //   const response = await api.get('/auth/user/');
   //   return response.data;
   // },
+};
+export const wakeUpBackend = () => {
+  axios.get(`${API_URL}/health/`).catch(() => {});
 };
 
 export default api;

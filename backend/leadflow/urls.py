@@ -6,9 +6,14 @@ Update this file to include leads API routes
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 
+def health(request):
+    return JsonResponse({"status": "ok"})
+  
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', health),
     
     # Auth endpoints (from Day 3)
     path('api/auth/', include('apps.users.urls')),

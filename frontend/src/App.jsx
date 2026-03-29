@@ -9,6 +9,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Home, Login, Signup } from './pages';
 import { Layout, Overview, Contacts, Settings, Pipeline, Reports, Inbox } from './components';
 import PrivateRoute from './components/PrivateRoute';
+import { wakeUpBackend } from './services/api';
+wakeUpBackend();
 
 export default function App() {
   return (
