@@ -6,7 +6,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'https://leadflow-backend.onrender.com/api';
 
 // Base axios instance
 const api = axios.create({
