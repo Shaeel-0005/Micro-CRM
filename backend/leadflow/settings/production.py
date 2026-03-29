@@ -12,10 +12,12 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
-     "https://micro-crm-ten.vercel.app",
-    origin.strip()
-    for origin in os.environ.get('CORS_ORIGINS', '').split(',')
-    if origin.strip()
+    "https://micro-crm-ten.vercel.app",
+    *[
+        origin.strip()
+        for origin in os.environ.get('CORS_ORIGINS', '').split(',')
+        if origin.strip()
+    ]
 ]
 
 # ── Security headers ──────────────────────────────────────────────────────────
