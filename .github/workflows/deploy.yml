@@ -1,0 +1,29 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            cd ~/Micro-CRM
+            git pull origin main
+            source backend/venv/bin/activate
+            cd backend
+            pip install -r requirements.txt --quiet
+            export $(cat .env | xargs)
+            python manage.py migrate --noinput
+            python manage.py collectstatic --noinput
+            sudo systemctl restart microcrm
+            echo "✅ Deployment complete!"
