@@ -35,7 +35,7 @@ const Hero = () => {
       <nav className="w-full px-6 py-6 md:px-12 flex items-center justify-between relative z-50">
         <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[#FF7F40] shadow-lg shadow-orange-500/20"></div>
-          <span className="text-lg font-medium tracking-tight text-gray-900">Logo</span>
+          <span className="text-lg font-medium tracking-tight text-gray-900">LeadFlow</span>
         </motion.div>
 
         <div className="hidden md:flex items-center gap-8 text-base font-normal text-gray-500">
