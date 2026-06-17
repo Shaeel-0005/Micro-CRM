@@ -149,20 +149,27 @@ export default function Reports() {
   const total    = data?.total ?? 0;
   const won      = data?.by_status?.won ?? 0;
   const lost     = data?.by_status?.lost ?? 0;
-  const active   = (data?.by_status?.new ?? 0) + (data?.by_status?.contacted ?? 0) + (data?.by_status?.in_progress ?? 0);
+  const active   = (data?.by_status?.new_lead ?? 0)
+                 + (data?.by_status?.discovery_call ?? 0)
+                 + (data?.by_status?.proposal_sent ?? 0)
+                 + (data?.by_status?.negotiation ?? 0);
   const winRate  = data?.win_rate ?? 0;
   const convRate = data?.conversion_rate ?? 0;
 
   const statusSegments = [
-    { label: 'New',         count: data?.by_status?.new ?? 0,         hex: '#9ca3af' },
-    { label: 'Contacted',   count: data?.by_status?.contacted ?? 0,   hex: '#60a5fa' },
-    { label: 'In Progress', count: data?.by_status?.in_progress ?? 0, hex: '#FF7F40' },
+    { label: 'New Lead', count: data?.by_status?.new_lead ?? 0, hex: '#9ca3af' },
+    { label: 'Discovery', count: data?.by_status?.discovery_call ?? 0, hex: '#60a5fa' },
+    { label: 'Proposal', count: data?.by_status?.proposal_sent ?? 0, hex: '#FF7F40' },
+    { label: 'Negotiation', count: data?.by_status?.negotiation ?? 0, hex: '#fbbf24' },
     { label: 'Won',         count: won,                                hex: '#10b981' },
     { label: 'Lost',        count: lost,                               hex: '#f87171' },
   ].filter((s) => s.count > 0);
 
   const sourceEntries  = Object.entries(data?.by_source ?? {}).sort(([, a], [, b]) => b - a);
-  const statusColors   = { new: 'bg-gray-400', contacted: 'bg-blue-400', in_progress: 'bg-[#FF7F40]', won: 'bg-emerald-500', lost: 'bg-rose-400' };
+  const statusColors   = {
+    new_lead: 'bg-gray-400', discovery_call: 'bg-blue-400', proposal_sent: 'bg-[#FF7F40]',
+    negotiation: 'bg-amber-400', won: 'bg-emerald-500', lost: 'bg-rose-400',
+  };
 
   if (error) {
     return (
@@ -194,7 +201,7 @@ export default function Reports() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Target}     label="Total Leads"  value={total}          loading={loading} />
-        <StatCard icon={TrendingUp} label="Active"       value={active}         loading={loading} sub="New + contacted + in progress" />
+        <StatCard icon={TrendingUp} label="Active" value={active} loading={loading} sub="Open pipeline deals" />
         <StatCard icon={Award}      label="Win Rate"     value={`${winRate}%`}  loading={loading} sub="Won vs closed deals" />
         <StatCard icon={XCircle}    label="Conversion"   value={`${convRate}%`} loading={loading} sub="Won vs total leads" />
       </div>

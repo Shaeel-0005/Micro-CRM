@@ -1,169 +1,110 @@
 import api from './api';
 
-/**
- * Leads Service
- * Handles all lead-related API calls
- */
-
 const leadsService = {
-  /**
-   * Get all leads for the authenticated user
-   * @param {Object} params - Query parameters (status, ordering, etc.)
-   * @returns {Promise} Array of leads
-   */
   getAll: async (params = {}) => {
-    try {
-      const queryString = new URLSearchParams(params).toString();
-      const url = queryString ? `/leads/?${queryString}` : '/leads/';
-      const response = await api.get(url);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-      throw error;
-    }
+    const queryString = new URLSearchParams(params).toString();
+    const url = queryString ? `/leads/?${queryString}` : '/leads/';
+    const response = await api.get(url);
+    return response.data;
   },
 
-  /**
-   * Get a single lead by ID
-   * @param {number} id - Lead ID
-   * @returns {Promise} Lead object
-   */
   getById: async (id) => {
-    try {
-      const response = await api.get(`/leads/${id}/`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching lead ${id}:`, error);
-      throw error;
-    }
+    const response = await api.get(`/leads/${id}/`);
+    return response.data;
   },
 
-  /**
-   * Create a new lead
-   * @param {Object} leadData - Lead data
-   * @returns {Promise} Created lead object
-   */
   create: async (leadData) => {
-    try {
-      const response = await api.post('/leads/', leadData);
-      return response.data;
-    } catch (error) {
-      console.error('Error creating lead:', error);
-      throw error;
-    }
+    const response = await api.post('/leads/', leadData);
+    return response.data;
   },
 
-  /**
-   * Update an existing lead
-   * @param {number} id - Lead ID
-   * @param {Object} leadData - Updated lead data
-   * @returns {Promise} Updated lead object
-   */
   update: async (id, leadData) => {
-    try {
-      const response = await api.put(`/leads/${id}/`, leadData);
-      return response.data;
-    } catch (error) {
-      console.error(`Error updating lead ${id}:`, error);
-      throw error;
-    }
+    const response = await api.put(`/leads/${id}/`, leadData);
+    return response.data;
   },
 
-  /**
-   * Partially update a lead
-   * @param {number} id - Lead ID
-   * @param {Object} leadData - Partial lead data
-   * @returns {Promise} Updated lead object
-   */
   partialUpdate: async (id, leadData) => {
-    try {
-      const response = await api.patch(`/leads/${id}/`, leadData);
-      return response.data;
-    } catch (error) {
-      console.error(`Error partially updating lead ${id}:`, error);
-      throw error;
-    }
+    const response = await api.patch(`/leads/${id}/`, leadData);
+    return response.data;
   },
 
-  /**
-   * Delete a lead
-   * @param {number} id - Lead ID
-   * @returns {Promise}
-   */
   delete: async (id) => {
-    try {
-      const response = await api.delete(`/leads/${id}/`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error deleting lead ${id}:`, error);
-      throw error;
-    }
+    const response = await api.delete(`/leads/${id}/`);
+    return response.data;
   },
 
-  /**
-   * Get leads by status
-   * @param {string} status - Lead status (new, contacted, in_progress, won, lost)
-   * @returns {Promise} Array of leads
-   */
-  getByStatus: async (status) => {
-    return leadsService.getAll({ status });
-  },
+  getByStatus: async (status) => leadsService.getAll({ status }),
 
-  /**
-   * Get leads statistics
-   * @returns {Promise} Statistics object
-   */
   getStats: async () => {
-    try {
-      const response = await api.get('/leads/stats/');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching lead stats:', error);
-      throw error;
-    }
+    const response = await api.get('/leads/stats/');
+    return response.data;
   },
 
-  /**
-   * Search leads
-   * @param {string} query - Search query
-   * @returns {Promise} Array of leads
-   */
-  search: async (query) => {
-    return leadsService.getAll({ search: query });
+  getMoneyStats: async () => {
+    const response = await api.get('/leads/money_stats/');
+    return response.data;
   },
+
+  search: async (query) => leadsService.getAll({ search: query }),
 };
 
-// Export status and source options for use in forms
 export const LEAD_STATUS = {
-  NEW: 'new',
-  CONTACTED: 'contacted',
-  IN_PROGRESS: 'in_progress',
+  NEW_LEAD: 'new_lead',
+  DISCOVERY_CALL: 'discovery_call',
+  PROPOSAL_SENT: 'proposal_sent',
+  NEGOTIATION: 'negotiation',
   WON: 'won',
   LOST: 'lost',
 };
 
 export const LEAD_STATUS_DISPLAY = {
-  new: 'New',
-  contacted: 'Contacted',
-  in_progress: 'In Progress',
+  new_lead: 'New Lead',
+  discovery_call: 'Discovery Call',
+  proposal_sent: 'Proposal Sent',
+  negotiation: 'Negotiation',
   won: 'Won',
   lost: 'Lost',
 };
 
 export const LEAD_SOURCE = {
-  WEBSITE: 'website',
-  LINKEDIN: 'linkedin',
-  EMAIL: 'email',
   REFERRAL: 'referral',
-  OTHER: 'other',
+  FB_ADS: 'fb_ads',
+  LINKEDIN: 'linkedin',
+  COLD_OUTREACH: 'cold_outreach',
+  WEBSITE: 'website',
+  WHATSAPP: 'whatsapp',
 };
 
 export const LEAD_SOURCE_DISPLAY = {
-  website: 'Website',
-  linkedin: 'LinkedIn',
-  email: 'Email',
   referral: 'Referral',
-  other: 'Other',
+  fb_ads: 'FB Ads',
+  linkedin: 'LinkedIn',
+  cold_outreach: 'Cold Outreach',
+  website: 'Website',
+  whatsapp: 'WhatsApp',
 };
+
+export const LOST_REASON = {
+  PRICE: 'price',
+  GHOSTED: 'ghosted',
+  COMPETITOR: 'competitor',
+  FEATURES: 'features',
+  TIMING: 'timing',
+};
+
+export const LOST_REASON_DISPLAY = {
+  price: 'Price',
+  ghosted: 'Ghosted',
+  competitor: 'Competitor',
+  features: 'Features',
+  timing: 'Timing',
+};
+
+export const OPEN_PIPELINE_STATUSES = [
+  'new_lead',
+  'discovery_call',
+  'proposal_sent',
+  'negotiation',
+];
 
 export default leadsService;

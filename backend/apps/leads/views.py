@@ -1,20 +1,21 @@
-"""
-backend/apps/leads/views.py
-Day 8: Added LeadActivityViewSet for nested activity endpoints
-"""
-
+from datetime import timedelta
+from decimal import Decimal
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
 
-from .models import Lead, LeadActivity
+from apps.reminders.models import Reminder
+from .models import Lead, Note
 from .serializers import (
     LeadListSerializer,
     LeadDetailSerializer,
     LeadCreateSerializer,
-    LeadActivitySerializer,
+    NoteSerializer,
 )
 
 
@@ -35,8 +36,8 @@ class LeadViewSet(viewsets.ModelViewSet):
     """
     permission_classes = [IsAuthenticated]
     filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields      = ['name', 'email', 'company']
-    ordering_fields    = ['created_at', 'name', 'company', 'status']
+    search_fields      = ['name', 'email', 'company', 'phone']
+    ordering_fields    = ['created_at', 'name', 'company', 'status', 'deal_value', 'expected_close_date']
     ordering           = ['-created_at']
 
     def get_queryset(self):
@@ -50,6 +51,14 @@ class LeadViewSet(viewsets.ModelViewSet):
         source_filter = self.request.query_params.get('source')
         if source_filter:
             queryset = queryset.filter(source=source_filter)
+
+        assigned_filter = self.request.query_params.get('assigned_to')
+        if assigned_filter:
+            queryset = queryset.filter(assigned_to_id=assigned_filter)
+
+        lost_reason_filter = self.request.query_params.get('lost_reason')
+        if lost_reason_filter:
+            queryset = queryset.filter(lost_reason=lost_reason_filter)
 
         return queryset
 
@@ -77,11 +86,12 @@ class LeadViewSet(viewsets.ModelViewSet):
         data = {
             'total': queryset.count(),
             'by_status': {
-                'new':         queryset.filter(status='new').count(),
-                'contacted':   queryset.filter(status='contacted').count(),
-                'in_progress': queryset.filter(status='in_progress').count(),
-                'won':         queryset.filter(status='won').count(),
-                'lost':        queryset.filter(status='lost').count(),
+                'new_lead': queryset.filter(status='new_lead').count(),
+                'discovery_call': queryset.filter(status='discovery_call').count(),
+                'proposal_sent': queryset.filter(status='proposal_sent').count(),
+                'negotiation': queryset.filter(status='negotiation').count(),
+                'won': queryset.filter(status='won').count(),
+                'lost': queryset.filter(status='lost').count(),
             },
             'by_source': {},
         }
@@ -97,21 +107,62 @@ class LeadViewSet(viewsets.ModelViewSet):
         serializer = LeadListSerializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'])
+    def money_stats(self, request):
+        queryset = self.get_queryset()
+        open_deals = queryset.exclude(status__in=['won', 'lost'])
 
-# ─── Lead Activity ViewSet ────────────────────────────────────────────────────
+        pkr_total = open_deals.filter(deal_currency='PKR').aggregate(
+            total=Coalesce(Sum('deal_value'), Decimal('0'))
+        )['total']
+        usd_total = open_deals.filter(deal_currency='USD').aggregate(
+            total=Coalesce(Sum('deal_value'), Decimal('0'))
+        )['total']
 
-class LeadActivityViewSet(viewsets.ModelViewSet):
+        now = timezone.now()
+        month_start = now.date().replace(day=1)
+        next_month = (month_start + timedelta(days=32)).replace(day=1)
+
+        deals_closing_this_month = queryset.filter(
+            expected_close_date__gte=month_start,
+            expected_close_date__lt=next_month
+        ).count()
+
+        overdue_follow_ups = Reminder.objects.filter(
+            owner=request.user,
+            is_completed=False,
+            reminder_date__lt=now
+        ).count()
+
+        lost_reasons = {}
+        for key, _label in Lead.LOST_REASON_CHOICES:
+            lost_reasons[key] = queryset.filter(status='lost', lost_reason=key).count()
+
+        return Response({
+            'pipeline_value': {
+                'PKR': str(pkr_total),
+                'USD': str(usd_total),
+            },
+            'deals_closing_this_month': deals_closing_this_month,
+            'overdue_follow_ups': overdue_follow_ups,
+            'lost_reasons': lost_reasons,
+        })
+
+
+# ─── Note ViewSet ─────────────────────────────────────────────────────────────
+
+class NoteViewSet(viewsets.ModelViewSet):
     """
-    CRUD for activities nested under a lead.
+    CRUD for notes nested under a lead.
 
-    list:    GET    /api/leads/{lead_id}/activities/
-    create:  POST   /api/leads/{lead_id}/activities/
-    destroy: DELETE /api/leads/{lead_id}/activities/{id}/
+    list:    GET    /api/leads/{lead_id}/notes/
+    create:  POST   /api/leads/{lead_id}/notes/
+    destroy: DELETE /api/leads/{lead_id}/notes/{id}/
 
     Update is intentionally excluded — activities are immutable once logged.
     """
     permission_classes = [IsAuthenticated]
-    serializer_class   = LeadActivitySerializer
+    serializer_class   = NoteSerializer
     http_method_names  = ['get', 'post', 'delete', 'head', 'options']
 
     def _get_lead(self):
@@ -127,8 +178,8 @@ class LeadActivityViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         lead = self._get_lead()
-        return LeadActivity.objects.filter(lead=lead)
+        return Note.objects.filter(lead=lead)
 
     def perform_create(self, serializer):
         lead = self._get_lead()
-        serializer.save(lead=lead)
+        serializer.save(lead=lead, created_by=self.request.user)

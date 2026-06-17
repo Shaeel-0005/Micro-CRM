@@ -14,6 +14,7 @@ import leadsService, {
   LEAD_SOURCE_DISPLAY,
 } from '../services/leadsService';
 import LeadDetailPanel from './LeadDetailPanel';
+import LeadForm from './Leadform';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,22 +34,26 @@ const getInitials = (name) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
 const STATUS_COLORS = {
-  new:         'bg-gray-100 text-gray-700 ring-gray-200',
-  contacted:   'bg-blue-100 text-blue-700 ring-blue-200',
-  in_progress: 'bg-amber-100 text-amber-700 ring-amber-200',
-  won:         'bg-emerald-100 text-emerald-700 ring-emerald-200',
-  lost:        'bg-rose-100 text-rose-700 ring-rose-200',
+  new_lead: 'bg-gray-100 text-gray-700 ring-gray-200',
+  discovery_call: 'bg-blue-100 text-blue-700 ring-blue-200',
+  proposal_sent: 'bg-orange-100 text-orange-700 ring-orange-200',
+  negotiation: 'bg-amber-100 text-amber-700 ring-amber-200',
+  won: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+  lost: 'bg-rose-100 text-rose-700 ring-rose-200',
 };
 
-const STATUS_ORDER = { new: 0, contacted: 1, in_progress: 2, won: 3, lost: 4 };
+const STATUS_ORDER = {
+  new_lead: 0, discovery_call: 1, proposal_sent: 2, negotiation: 3, won: 4, lost: 5,
+};
 
 const FILTER_OPTIONS = [
-  { key: 'all',         label: 'All',         active: 'bg-gray-900 text-white' },
-  { key: 'new',         label: 'New',         active: 'bg-gray-500 text-white' },
-  { key: 'contacted',   label: 'Contacted',   active: 'bg-blue-500 text-white' },
-  { key: 'in_progress', label: 'In Progress', active: 'bg-amber-500 text-white' },
-  { key: 'won',         label: 'Won',         active: 'bg-emerald-500 text-white' },
-  { key: 'lost',        label: 'Lost',        active: 'bg-rose-500 text-white' },
+  { key: 'all', label: 'All', active: 'bg-gray-900 text-white' },
+  { key: 'new_lead', label: 'New Lead', active: 'bg-gray-500 text-white' },
+  { key: 'discovery_call', label: 'Discovery', active: 'bg-blue-500 text-white' },
+  { key: 'proposal_sent', label: 'Proposal', active: 'bg-orange-500 text-white' },
+  { key: 'negotiation', label: 'Negotiation', active: 'bg-amber-500 text-white' },
+  { key: 'won', label: 'Won', active: 'bg-emerald-500 text-white' },
+  { key: 'lost', label: 'Lost', active: 'bg-rose-500 text-white' },
 ];
 
 // ─── Sort button ──────────────────────────────────────────────────────────────
@@ -94,9 +99,6 @@ export default function Contacts() {
   const [detailLead, setDetailLead]     = useState(null);
   const [isAdding, setIsAdding]         = useState(false);
   const [starred, setStarred]           = useState({});
-  const [formData, setFormData]         = useState({ name: '', company: '', email: '', phone: '', status: 'new', notes: '', source: 'other' });
-  const [formError, setFormError]       = useState('');
-  const [submitting, setSubmitting]     = useState(false);
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   const fetchContacts = useCallback(async () => {
@@ -161,21 +163,9 @@ export default function Contacts() {
     } catch { alert('Failed to delete contact.'); }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setFormError(''); setSubmitting(true);
-    try {
-      await leadsService.create({
-        name: formData.name, email: formData.email || undefined,
-        phone: formData.phone || undefined, company: formData.company || undefined,
-        status: formData.status, source: formData.source, notes: formData.notes || undefined,
-      });
-      await fetchContacts();
-      setIsAdding(false);
-      setFormData({ name: '', company: '', email: '', phone: '', status: 'new', notes: '', source: 'other' });
-    } catch (err) {
-      const d = err.response?.data;
-      setFormError(d?.email?.[0] ?? d?.phone?.[0] ?? d?.name?.[0] ?? 'Failed to create contact.');
-    } finally { setSubmitting(false); }
+  const handleCreateLead = async (payload) => {
+    await leadsService.create(payload);
+    await fetchContacts();
   };
 
   const handleLeadUpdate = (id, newStatus) => {
@@ -351,66 +341,11 @@ export default function Contacts() {
 
       {detailLead && <LeadDetailPanel lead={detailLead} onClose={() => setDetailLead(null)} onUpdate={handleLeadUpdate} />}
 
-      {/* Add modal */}
-      {isAdding && (
-        <div className="fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4" onClick={() => setIsAdding(false)}>
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 bg-white">
-              <h2 className="text-lg font-semibold text-gray-900">Add New Contact</h2>
-              <button onClick={() => setIsAdding(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {formError && <div className="rounded-lg bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-600">{formError}</div>}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { label: 'Full Name *', key: 'name', type: 'text', required: true },
-                  { label: 'Company',     key: 'company', type: 'text' },
-                  { label: 'Email',       key: 'email', type: 'email' },
-                  { label: 'Phone',       key: 'phone', type: 'tel' },
-                ].map(({ label, key, type, required }) => (
-                  <div key={key}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                    <input type={type} required={required} value={formData[key]}
-                      onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none ring-orange-200 focus:ring-2 focus:border-transparent" />
-                  </div>
-                ))}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none ring-orange-200 focus:ring-2 focus:border-transparent">
-                    {Object.entries(LEAD_STATUS_DISPLAY).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
-                  <select value={formData.source} onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none ring-orange-200 focus:ring-2 focus:border-transparent">
-                    <option value="linkedin">LinkedIn</option>
-                    <option value="email">Email</option>
-                    <option value="referral">Referral</option>
-                    <option value="website">Website</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                  <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={3} placeholder="Add any notes..." className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none ring-orange-200 focus:ring-2 focus:border-transparent resize-none" />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => { setIsAdding(false); setFormError(''); }}
-                  className="flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all">Cancel</button>
-                <button type="submit" disabled={submitting}
-                  className="flex-1 rounded-lg bg-[#FF7F40] px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-600 transition-all disabled:opacity-50">
-                  {submitting ? 'Adding...' : 'Add Contact'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <LeadForm
+        isOpen={isAdding}
+        onClose={() => setIsAdding(false)}
+        onSubmit={handleCreateLead}
+      />
     </>
   );
 }

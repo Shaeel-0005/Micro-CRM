@@ -3,34 +3,59 @@ from django.contrib.auth.models import User
 
 
 class Lead(models.Model):
-    """Core lead/client model"""
-    
+    """Core lead/client model — Phase 1 agency pipeline."""
+
     STATUS_CHOICES = [
-        ('new', 'New'),
-        ('contacted', 'Contacted'),
-        ('in_progress', 'In Progress'),
+        ('new_lead', 'New Lead'),
+        ('discovery_call', 'Discovery Call'),
+        ('proposal_sent', 'Proposal Sent'),
+        ('negotiation', 'Negotiation'),
         ('won', 'Won'),
         ('lost', 'Lost'),
     ]
 
     SOURCE_CHOICES = [
-        ('linkedin', 'LinkedIn'),
-        ('email', 'Email'),
         ('referral', 'Referral'),
+        ('fb_ads', 'FB Ads'),
+        ('linkedin', 'LinkedIn'),
+        ('cold_outreach', 'Cold Outreach'),
         ('website', 'Website'),
-        ('other', 'Other'),
+        ('whatsapp', 'WhatsApp'),
+    ]
+
+    LOST_REASON_CHOICES = [
+        ('price', 'Price'),
+        ('ghosted', 'Ghosted'),
+        ('competitor', 'Competitor'),
+        ('features', 'Features'),
+        ('timing', 'Timing'),
+    ]
+
+    CURRENCY_CHOICES = [
+        ('PKR', 'PKR'),
+        ('USD', 'USD'),
     ]
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='leads')
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='assigned_leads',
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=100)
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)
-    source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='other')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
+    source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='website')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new_lead')
+    deal_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    deal_currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='PKR')
+    expected_close_date = models.DateField(null=True, blank=True)
+    lost_reason = models.CharField(max_length=20, choices=LOST_REASON_CHOICES, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    notes = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -38,25 +63,30 @@ class Lead(models.Model):
     def __str__(self):
         return f"{self.name} ({self.status})"
 
+    def save(self, *args, **kwargs):
+        if self.assigned_to_id is None and self.owner_id:
+            self.assigned_to_id = self.owner_id
+        super().save(*args, **kwargs)
 
-class LeadActivity(models.Model):
-    """Track notes and activities on leads"""
-    
-    ACTIVITY_TYPES = [
-        ('note', 'Note'),
+
+class Note(models.Model):
+    """Activity timeline notes for a lead."""
+
+    NOTE_TYPES = [
         ('call', 'Call'),
         ('email', 'Email'),
-        ('meeting', 'Meeting'),
+        ('whatsapp', 'WhatsApp'),
+        ('general', 'General'),
     ]
 
-    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='activities')
-    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES, default='note')
-    description = models.TextField()
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='notes')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lead_notes')
+    note_type = models.CharField(max_length=20, choices=NOTE_TYPES, default='general')
+    content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name_plural = 'Lead Activities'
 
     def __str__(self):
-        return f"{self.activity_type} on {self.lead.name}"
+        return f"{self.note_type} on {self.lead.name}"

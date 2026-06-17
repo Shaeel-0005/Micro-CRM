@@ -1,93 +1,74 @@
 /**
  * components/Pipeline.jsx
- * Kanban board — one column per lead status.
- * Fully connected to backend via leadsService.
+ * Agency pipeline kanban with drag-and-drop stage changes.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, AlertCircle, Mail, Phone, MoreVertical } from 'lucide-react';
-import leadsService, { LEAD_SOURCE_DISPLAY } from '../services/leadsService';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core';
+import { RefreshCw, AlertCircle, Mail, Phone, DollarSign } from 'lucide-react';
+import leadsService, {
+  LEAD_SOURCE_DISPLAY,
+  LEAD_STATUS_DISPLAY,
+  LOST_REASON_DISPLAY,
+} from '../services/leadsService';
+import LeadDetailPanel from './LeadDetailPanel';
 
 const COLUMNS = [
-  { key: 'new',         label: 'New',         color: 'bg-gray-400',    light: 'bg-gray-50',    border: 'border-gray-200' },
-  { key: 'contacted',   label: 'Contacted',   color: 'bg-blue-400',    light: 'bg-blue-50',    border: 'border-blue-100' },
-  { key: 'in_progress', label: 'In Progress', color: 'bg-[#FF7F40]',   light: 'bg-orange-50',  border: 'border-orange-100' },
-  { key: 'won',         label: 'Won',         color: 'bg-emerald-500', light: 'bg-emerald-50', border: 'border-emerald-100' },
-  { key: 'lost',        label: 'Lost',        color: 'bg-rose-400',    light: 'bg-rose-50',    border: 'border-rose-100' },
+  { key: 'new_lead', label: 'New Lead', color: 'bg-gray-400', light: 'bg-gray-50', border: 'border-gray-200' },
+  { key: 'discovery_call', label: 'Discovery Call', color: 'bg-blue-400', light: 'bg-blue-50', border: 'border-blue-100' },
+  { key: 'proposal_sent', label: 'Proposal Sent', color: 'bg-[#FF7F40]', light: 'bg-orange-50', border: 'border-orange-100' },
+  { key: 'negotiation', label: 'Negotiation', color: 'bg-amber-400', light: 'bg-amber-50', border: 'border-amber-100' },
+  { key: 'won', label: 'Won', color: 'bg-emerald-500', light: 'bg-emerald-50', border: 'border-emerald-100' },
+  { key: 'lost', label: 'Lost', color: 'bg-rose-400', light: 'bg-rose-50', border: 'border-rose-100' },
 ];
 
-// ─── Lead card ────────────────────────────────────────────────────────────────
+function formatDealValue(lead) {
+  if (!lead.deal_value) return null;
+  const symbol = lead.deal_currency === 'USD' ? '$' : 'Rs ';
+  return `${symbol}${Number(lead.deal_value).toLocaleString()}`;
+}
 
-function LeadCard({ lead, onStatusChange }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const initials = lead.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
-  const otherStatuses = COLUMNS.filter((c) => c.key !== lead.status);
+function LeadCardContent({ lead, onClick }) {
+  const initials = lead.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  const dealLabel = formatDealValue(lead);
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all group relative">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-[#FF7F40] font-semibold text-xs flex-shrink-0">
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{lead.name}</p>
-            <p className="text-xs text-gray-500 truncate">{lead.company || '—'}</p>
-          </div>
+    <div
+      onClick={onClick}
+      className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer"
+    >
+      <div className="flex items-start gap-2.5 mb-3">
+        <div className="h-8 w-8 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-[#FF7F40] font-semibold text-xs flex-shrink-0">
+          {initials}
         </div>
-
-        {/* Move to status menu */}
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-gray-100 text-gray-400"
-          >
-            <MoreVertical className="h-3.5 w-3.5" />
-          </button>
-
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-6 z-20 w-40 bg-white border border-gray-100 rounded-xl shadow-lg py-1 text-sm"
-              onMouseLeave={() => setMenuOpen(false)}
-            >
-              <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Move to
-              </p>
-              {otherStatuses.map((s) => (
-                <button
-                  key={s.key}
-                  onClick={() => {
-                    onStatusChange(lead.id, s.key);
-                    setMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-gray-700 hover:bg-orange-50 hover:text-[#FF7F40] transition-colors"
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-900 truncate">{lead.name}</p>
+          <p className="text-xs text-gray-500 truncate">{lead.company || '—'}</p>
         </div>
       </div>
 
-      {/* Source badge */}
+      {dealLabel && (
+        <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-emerald-700">
+          <DollarSign className="h-3 w-3" />
+          {dealLabel}
+        </div>
+      )}
+
       <div className="mb-3">
         <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
           {LEAD_SOURCE_DISPLAY[lead.source] ?? lead.source}
         </span>
       </div>
 
-      {/* Contact info */}
       <div className="space-y-1">
         {lead.email && (
           <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -106,9 +87,29 @@ function LeadCard({ lead, onStatusChange }) {
   );
 }
 
-// ─── Column ───────────────────────────────────────────────────────────────────
+function DraggableLeadCard({ lead, onOpen }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `lead-${lead.id}`,
+    data: { lead, type: 'lead' },
+  });
 
-function KanbanColumn({ column, leads, onStatusChange, loading }) {
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.4 : 1 }
+    : undefined;
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <LeadCardContent lead={lead} onClick={() => onOpen(lead)} />
+    </div>
+  );
+}
+
+function KanbanColumn({ column, leads, onOpen, loading }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${column.key}`,
+    data: { status: column.key },
+  });
+
   return (
     <div className="flex flex-col min-w-[260px] w-[260px]">
       <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${column.light} border ${column.border} mb-3`}>
@@ -121,45 +122,72 @@ function KanbanColumn({ column, leads, onStatusChange, loading }) {
         </span>
       </div>
 
-      <div className="flex flex-col gap-3 flex-1">
+      <div
+        ref={setNodeRef}
+        className={`flex flex-col gap-3 flex-1 min-h-[120px] rounded-xl p-1 transition-colors ${
+          isOver ? 'bg-orange-50/60 ring-2 ring-orange-200' : ''
+        }`}
+      >
         {loading
           ? [...Array(2)].map((_, i) => (
               <div key={i} className="bg-white border border-gray-100 rounded-xl p-4 space-y-2 animate-pulse">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-full bg-gray-100" />
-                  <div className="space-y-1 flex-1">
-                    <div className="h-3 w-3/4 bg-gray-100 rounded" />
-                    <div className="h-3 w-1/2 bg-gray-100 rounded" />
-                  </div>
-                </div>
-                <div className="h-3 w-1/3 bg-gray-100 rounded" />
+                <div className="h-3 w-3/4 bg-gray-100 rounded" />
+                <div className="h-3 w-1/2 bg-gray-100 rounded" />
               </div>
             ))
           : leads.length === 0
             ? (
               <div className={`border-2 border-dashed ${column.border} rounded-xl p-6 text-center`}>
-                <p className="text-xs text-gray-400">No leads here</p>
+                <p className="text-xs text-gray-400">Drop leads here</p>
               </div>
             )
             : leads.map((lead) => (
-                <LeadCard
-                  key={lead.id}
-                  lead={lead}
-                  onStatusChange={onStatusChange}
-                />
-              ))
-        }
+                <DraggableLeadCard key={lead.id} lead={lead} onOpen={onOpen} />
+              ))}
       </div>
     </div>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+function LostReasonModal({ onConfirm, onCancel }) {
+  const [reason, setReason] = useState('ghosted');
+
+  return (
+    <div className="fixed inset-0 bg-gray-900/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Why was this deal lost?</h3>
+        <p className="text-sm text-gray-500 mb-4">Lost reason is required when moving a deal to Lost.</p>
+        <select
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm mb-4"
+        >
+          {Object.entries(LOST_REASON_DISPLAY).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button onClick={() => onConfirm(reason)} className="flex-1 rounded-lg bg-rose-500 py-2 text-sm font-medium text-white hover:bg-rose-600">
+            Mark as Lost
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Pipeline() {
-  const [leads, setLeads]     = useState([]);
+  const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
+  const [error, setError] = useState(null);
+  const [activeLead, setActiveLead] = useState(null);
+  const [detailLead, setDetailLead] = useState(null);
+  const [pendingLost, setPendingLost] = useState(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -177,16 +205,47 @@ export default function Pipeline() {
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
-  const handleStatusChange = async (id, newStatus) => {
-    // Optimistic update — move card immediately, revert on failure
-    setLeads((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, status: newStatus } : l))
-    );
+  const applyStatusChange = async (leadId, newStatus, lostReason = null) => {
+    const payload = { status: newStatus };
+    if (newStatus === 'lost') payload.lost_reason = lostReason;
+
+    setLeads((prev) => prev.map((l) => (
+      l.id === leadId ? { ...l, status: newStatus, lost_reason: lostReason ?? l.lost_reason } : l
+    )));
+
     try {
-      await leadsService.partialUpdate(id, { status: newStatus });
+      await leadsService.partialUpdate(leadId, payload);
     } catch {
       fetchLeads();
     }
+  };
+
+  const handleDragStart = (event) => {
+    const lead = event.active.data.current?.lead;
+    if (lead) setActiveLead(lead);
+  };
+
+  const handleDragEnd = (event) => {
+    setActiveLead(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const lead = active.data.current?.lead;
+    if (!lead) return;
+
+    let newStatus = over.data.current?.status;
+    if (!newStatus && over.id?.toString().startsWith('column-')) {
+      newStatus = over.id.toString().replace('column-', '');
+    }
+
+    if (!newStatus || newStatus === lead.status) return;
+
+    if (newStatus === 'lost') {
+      setPendingLost({ leadId: lead.id, newStatus });
+      return;
+    }
+
+    applyStatusChange(lead.id, newStatus);
   };
 
   const leadsByStatus = COLUMNS.reduce((acc, col) => {
@@ -201,10 +260,7 @@ export default function Pipeline() {
           <AlertCircle className="h-5 w-5" />
           <p className="text-sm font-medium">{error}</p>
         </div>
-        <button
-          onClick={fetchLeads}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#FF7F40] px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 transition-all"
-        >
+        <button onClick={fetchLeads} className="inline-flex items-center gap-2 rounded-lg bg-[#FF7F40] px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 transition-all">
           <RefreshCw className="h-4 w-4" /> Retry
         </button>
       </div>
@@ -220,25 +276,58 @@ export default function Pipeline() {
             {leads.length} lead{leads.length !== 1 ? 's' : ''} across all stages
           </p>
         </div>
-        <button
-          onClick={fetchLeads}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all shadow-sm"
-        >
+        <button onClick={fetchLeads} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all shadow-sm">
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-6 flex-1">
-        {COLUMNS.map((col) => (
-          <KanbanColumn
-            key={col.key}
-            column={col}
-            leads={leadsByStatus[col.key] ?? []}
-            onStatusChange={handleStatusChange}
-            loading={loading}
-          />
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-6 flex-1">
+          {COLUMNS.map((col) => (
+            <KanbanColumn
+              key={col.key}
+              column={col}
+              leads={leadsByStatus[col.key] ?? []}
+              onOpen={setDetailLead}
+              loading={loading}
+            />
+          ))}
+        </div>
+
+        <DragOverlay>
+          {activeLead ? (
+            <div className="rotate-2 opacity-90">
+              <LeadCardContent lead={activeLead} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {pendingLost && (
+        <LostReasonModal
+          onCancel={() => setPendingLost(null)}
+          onConfirm={(reason) => {
+            applyStatusChange(pendingLost.leadId, pendingLost.newStatus, reason);
+            setPendingLost(null);
+          }}
+        />
+      )}
+
+      {detailLead && (
+        <LeadDetailPanel
+          lead={detailLead}
+          onClose={() => setDetailLead(null)}
+          onUpdate={(id, newStatus) => {
+            setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status: newStatus } : l)));
+            setDetailLead((prev) => (prev?.id === id ? { ...prev, status: newStatus } : prev));
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -15,6 +15,8 @@ import analyticsService from '../services/analyticsService';
 import leadsService, {
   LEAD_STATUS_DISPLAY,
   LEAD_SOURCE_DISPLAY,
+  LOST_REASON_DISPLAY,
+  OPEN_PIPELINE_STATUSES,
 } from '../services/leadsService';
 import reminderService from '../services/reminderService';
 
@@ -44,12 +46,17 @@ const formatDueDate = (dateString) => {
 };
 
 const statusToColor = (status) => ({
-  won: 'emerald', in_progress: 'orange', contacted: 'blue', lost: 'rose', new: 'gray',
+  won: 'emerald', negotiation: 'amber', proposal_sent: 'orange',
+  discovery_call: 'blue', lost: 'rose', new_lead: 'gray',
 }[status] ?? 'gray');
 
 const statusToActivity = (status) => ({
-  won: 'Deal closed — Won 🎉', lost: 'Deal marked as lost',
-  in_progress: 'Lead moved to In Progress', contacted: 'Lead contacted', new: 'New lead added',
+  won: 'Deal closed — Won',
+  lost: 'Deal marked as lost',
+  negotiation: 'In negotiation',
+  proposal_sent: 'Proposal sent',
+  discovery_call: 'Discovery call scheduled',
+  new_lead: 'New lead added',
 }[status] ?? 'Lead updated');
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -181,6 +188,7 @@ export default function Overview() {
         analyticsService.getDashboard(),
         leadsService.getAll({ ordering: '-created_at' }),
         reminderService.getUpcoming(),
+        reminderService.getOverdue(),
       ]);
 
       setAnalytics(analyticsData);
@@ -209,17 +217,23 @@ export default function Overview() {
   // ── Derived values ──────────────────────────────────────────────────────────
   const total    = analytics?.total ?? 0;
   const won      = analytics?.by_status?.won ?? 0;
-  const active   = (analytics?.by_status?.new ?? 0)
-                 + (analytics?.by_status?.contacted ?? 0)
-                 + (analytics?.by_status?.in_progress ?? 0);
+  const active   = OPEN_PIPELINE_STATUSES.reduce(
+    (sum, status) => sum + (analytics?.by_status?.[status] ?? 0), 0
+  );
   const winRate  = analytics?.win_rate ?? 0;
   const trendPct = analytics?.trend_pct ?? 0;
+  const pipelinePKR = analytics?.pipeline_value?.PKR ?? '0';
+  const pipelineUSD = analytics?.pipeline_value?.USD ?? '0';
+  const overdueCount = analytics?.overdue_follow_ups ?? 0;
+  const closingThisMonth = analytics?.deals_closing_this_month ?? 0;
+  const lostReasons = analytics?.lost_reasons ?? {};
 
   const pipelineStages = [
-    { name: 'New',         leads: analytics?.by_status?.new ?? 0,         highlight: false },
-    { name: 'Contacted',   leads: analytics?.by_status?.contacted ?? 0,   highlight: false },
-    { name: 'In Progress', leads: analytics?.by_status?.in_progress ?? 0, highlight: false },
-    { name: 'Won',         leads: won,                                     highlight: true  },
+    { name: 'New Lead', leads: analytics?.by_status?.new_lead ?? 0, highlight: false },
+    { name: 'Discovery', leads: analytics?.by_status?.discovery_call ?? 0, highlight: false },
+    { name: 'Proposal', leads: analytics?.by_status?.proposal_sent ?? 0, highlight: false },
+    { name: 'Negotiation', leads: analytics?.by_status?.negotiation ?? 0, highlight: false },
+    { name: 'Won', leads: won, highlight: true },
   ].map((s) => ({
     ...s,
     percentage: total > 0 ? Math.round((s.leads / total) * 100) : 0,
@@ -230,10 +244,12 @@ export default function Overview() {
     .slice(0, 4);
 
   const statsCards = [
-    { label: 'Total Leads',  value: total.toString(),    icon: Target,    change: trendPct !== 0 ? `${Math.abs(trendPct)}%` : undefined, isPositive: trendPct >= 0 },
-    { label: 'Active',       value: active.toString(),   icon: Briefcase  },
-    { label: 'Won',          value: won.toString(),       icon: DollarSign },
-    { label: 'Win Rate',     value: `${winRate}%`,        icon: PieChart,  isPositive: winRate >= 30 },
+    { label: 'Pipeline Value (PKR)', value: `Rs ${Number(pipelinePKR).toLocaleString()}`, icon: DollarSign },
+    { label: 'Pipeline Value (USD)', value: `$${Number(pipelineUSD).toLocaleString()}`, icon: DollarSign },
+    { label: 'Overdue Follow-ups', value: overdueCount.toString(), icon: AlertCircle, isPositive: overdueCount === 0 },
+    { label: 'Closing This Month', value: closingThisMonth.toString(), icon: Target },
+    { label: 'Active Deals', value: active.toString(), icon: Briefcase },
+    { label: 'Win Rate', value: `${winRate}%`, icon: PieChart, isPositive: winRate >= 30 },
   ];
 
   if (error) {
@@ -253,7 +269,7 @@ export default function Overview() {
   return (
     <div>
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         {statsCards.map((card, idx) => (
           <StatCard key={idx} {...card} loading={loadingA} />
         ))}
@@ -359,7 +375,7 @@ export default function Overview() {
           </div>
 
           {/* Pipeline + Source charts */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="rounded-xl border border-gray-100 bg-white p-4 sm:p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Pipeline by Status</h3>
               {loadingA
@@ -398,6 +414,23 @@ export default function Overview() {
                         </div>
                       </div>
                     ))}</div>
+              }
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-white p-4 sm:p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Lost Reasons</h3>
+              {loadingA
+                ? <div className="h-24 bg-gray-100 animate-pulse rounded" />
+                : Object.values(lostReasons).every((c) => c === 0)
+                  ? <p className="text-sm text-gray-400 text-center py-6">No lost deals yet</p>
+                  : <div className="space-y-3">
+                      {Object.entries(lostReasons).filter(([, count]) => count > 0).map(([reason, count]) => (
+                        <div key={reason} className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">{LOST_REASON_DISPLAY[reason] ?? reason}</span>
+                          <span className="text-sm font-semibold text-gray-900">{count}</span>
+                        </div>
+                      ))}
+                    </div>
               }
             </div>
           </div>
