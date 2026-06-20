@@ -138,7 +138,7 @@ function TeamSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
+      <div id="team" className="scroll-mt-24 bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -192,7 +192,7 @@ function TeamSettings() {
       </div>
 
       {permissions.can_manage_invites && (
-        <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
+        <div id="invites" className="scroll-mt-24 bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
           <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
             <Mail className="h-4 w-4 text-[#FF7F40]" /> Invite Team Member
           </h3>
@@ -252,7 +252,7 @@ function TeamSettings() {
       )}
 
       {permissions.can_export_csv && (
-        <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
+        <div id="export" className="scroll-mt-24 bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
           <button
             onClick={handleExport}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -262,18 +262,22 @@ function TeamSettings() {
         </div>
       )}
 
-      {permissions.can_view_audit_log && audit.length > 0 && (
-        <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
+      {permissions.can_view_audit_log && (
+        <div id="audit" className="scroll-mt-24 bg-white border border-gray-100 rounded-xl p-6 shadow-[0_8px_30px_-8px_rgba(255,127,64,0.15)]">
           <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
             <Shield className="h-4 w-4 text-[#FF7F40]" /> Activity Audit Log
           </h3>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {audit.slice(0, 20).map((entry) => (
-              <div key={entry.id} className="text-xs border-b border-gray-50 pb-2">
-                <span className="font-medium text-gray-900">{entry.action}</span>
-                <span className="text-gray-500"> — {entry.actor_name || 'System'} — {new Date(entry.created_at).toLocaleString()}</span>
-              </div>
-            ))}
+            {audit.length > 0 ? (
+              audit.slice(0, 20).map((entry) => (
+                <div key={entry.id} className="text-xs border-b border-gray-50 pb-2">
+                  <span className="font-medium text-gray-900">{entry.action}</span>
+                  <span className="text-gray-500"> — {entry.actor_name || 'System'} — {new Date(entry.created_at).toLocaleString()}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-gray-500">No audit activity yet.</p>
+            )}
           </div>
         </div>
       )}

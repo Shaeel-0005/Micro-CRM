@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Search, Plus, Mail, Phone,
   Star, StarOff, Trash2, Building2,
@@ -92,6 +93,12 @@ function SortButton({ label, field, current, direction, onChange }) {
 
 export default function Contacts() {
   const { canExportCsv } = useAuth();
+  const outletContext = useOutletContext() ?? {};
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = new URLSearchParams(location.search);
+  const searchFromLayout = searchParams.get('search') ?? '';
+  const openCreateLead = searchParams.get('new') === '1';
   const [contacts, setContacts]         = useState([]);
   const [tags, setTags]                 = useState([]);
   const [savedViews, setSavedViews]     = useState([]);
@@ -131,6 +138,14 @@ export default function Contacts() {
       setSavedViews(Array.isArray(data) ? data : data.results ?? []);
     }).catch(() => setSavedViews([]));
   }, []);
+
+  useEffect(() => {
+    setSearchQuery(searchFromLayout);
+  }, [searchFromLayout]);
+
+  useEffect(() => {
+    setIsAdding(openCreateLead);
+  }, [openCreateLead]);
 
   // ── Sort handler ────────────────────────────────────────────────────────────
   const handleSort = (field, dir) => {
@@ -183,6 +198,19 @@ export default function Contacts() {
   const handleCreateLead = async (payload) => {
     await leadsService.create(payload);
     await fetchContacts(filterTag ? { tag: filterTag } : {});
+  };
+
+  const handleCloseLeadForm = () => {
+    setIsAdding(false);
+    if (typeof outletContext.closeLeadFormQuery === 'function') {
+      outletContext.closeLeadFormQuery();
+      return;
+    }
+
+    const params = new URLSearchParams(location.search);
+    params.delete('new');
+    const query = params.toString();
+    navigate(query ? { pathname: '/contacts', search: `?${query}` } : '/contacts', { replace: true });
   };
 
   const applySavedView = (view) => {
@@ -415,7 +443,7 @@ export default function Contacts() {
 
       <LeadForm
         isOpen={isAdding}
-        onClose={() => setIsAdding(false)}
+        onClose={handleCloseLeadForm}
         onSubmit={handleCreateLead}
       />
     </>

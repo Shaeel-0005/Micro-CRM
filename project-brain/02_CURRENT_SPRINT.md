@@ -41,3 +41,4 @@ Get Phase 2 to a state safe to put in front of real team users: fix the permissi
 
 - 2026-06-17 — Fixed P0 lead status PATCH; WhatsApp invite links; role-matrix tests (17/17). Left: Note migration audit + prod smoke test.
 - 2026-06-17 — Note migration audit (25/25 tests), `audit_note_migration` command. Committed `7b85ab0`, pushed main. Added `09_SMOKE_TEST.md`. Left: prod smoke test.
+- 2026-06-20 — Refactored dashboard shell to use live user/workspace data, project-only nav, and settings anchors for team/audit/export.

@@ -6,15 +6,81 @@
  *  3. Toast appears automatically when a reminder becomes due
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, TrendingUp, Users, BarChart3,
   Inbox, Settings, Menu, X, Search, Bell, Plus,
-  DollarSign, ChevronDown, Zap, Calendar,
-  Clock, AlertCircle, CheckCircle, Loader2, Check
+  Clock, AlertCircle, CheckCircle, Loader2, Check, Download
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import reminderService from '../services/reminderService';
+
+const PRIMARY_NAV_ITEMS = [
+  { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/pipeline', label: 'Pipeline', icon: TrendingUp },
+  { to: '/contacts', label: 'Contacts', icon: Users },
+  { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/inbox', label: 'Inbox', icon: Inbox },
+];
+
+const PAGE_META = [
+  { path: '/dashboard', section: 'Dashboard', title: 'Overview' },
+  { path: '/pipeline', section: 'Leads', title: 'Pipeline' },
+  { path: '/contacts', section: 'Leads', title: 'Contacts' },
+  { path: '/reports', section: 'Analytics', title: 'Reports' },
+  { path: '/inbox', section: 'Follow-ups', title: 'Inbox' },
+  { path: '/settings', section: 'Workspace', title: 'Settings' },
+];
+
+function getPageMeta(pathname) {
+  return (
+    PAGE_META.find(({ path }) => pathname === path || pathname.startsWith(`${path}/`)) ??
+    PAGE_META[0]
+  );
+}
+
+function SidebarNavLink({ to, label, icon, end = false, badge, onClick }) {
+  const Icon = icon;
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onClick}
+      className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${
+        isActive
+          ? 'bg-orange-50 text-gray-900 border border-orange-100'
+          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      }`}
+    >
+      <Icon className="h-5 w-5 sm:h-4 sm:w-4 text-gray-400 group-hover:text-gray-900" />
+      <span>{label}</span>
+      {badge ? (
+        <span className="ml-auto rounded-full bg-[#FF7F40] px-2 py-0.5 text-xs font-semibold text-white">
+          {badge}
+        </span>
+      ) : null}
+    </NavLink>
+  );
+}
+
+function WorkspaceQuickLink({ to, label, icon, active = false, onClick }) {
+  const Icon = icon;
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+        active
+          ? 'bg-orange-50 text-gray-900 border border-orange-100'
+          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      }`}
+    >
+      <Icon className="h-4 w-4 text-[#FF7F40]" />
+      <span>{label}</span>
+    </Link>
+  );
+}
 
 // ─── Due toast ────────────────────────────────────────────────────────────────
 // Appears in bottom-right when a reminder just became due.
@@ -242,18 +308,37 @@ function BellPopover({ onClose, onBadgeChange }) {
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 export default function Layout() {
-  const [sidebarOpen, setSidebarOpen]     = useState(false);
-  const [bellOpen, setBellOpen]           = useState(false);
+  const { user, workspace, permissions } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
   const [reminderBadge, setReminderBadge] = useState(0);
-  const [dueToast, setDueToast]           = useState(null); // reminder object or null
-  const [dropdowns, setDropdowns]         = useState({
-    sales: false, activities: false, integrations: false,
-  });
+  const [dueToast, setDueToast] = useState(null);
+  const [searchValue, setSearchValue] = useState('');
   const bellRef = useRef(null);
 
-  const toggleSidebar  = () => setSidebarOpen(!sidebarOpen);
-  const toggleDropdown = (key) =>
-    setDropdowns((prev) => ({ ...prev, [key]: !prev[key] }));
+  const pageMeta = useMemo(() => getPageMeta(location.pathname), [location.pathname]);
+  const workspaceName = workspace?.name ?? user?.workspace?.name ?? 'LeadFlow Workspace';
+  const roleLabel = workspace?.role_display ?? workspace?.role ?? user?.workspace?.role_display ?? user?.workspace?.role ?? 'Member';
+  const userName = user?.username ?? 'Guest';
+  const userInitial = (userName.trim().charAt(0) || 'U').toUpperCase();
+
+  const workspaceLinks = useMemo(() => {
+    const links = [];
+    if (permissions?.can_manage_invites || permissions?.can_manage_team) {
+      links.push({ to: '/settings#team', label: 'Team & Invites', icon: Users, hash: '#team' });
+    }
+    if (permissions?.can_view_audit_log) {
+      links.push({ to: '/settings#audit', label: 'Activity Log', icon: Clock, hash: '#audit' });
+    }
+    if (permissions?.can_export_csv) {
+      links.push({ to: '/settings#export', label: 'CSV Export', icon: Download, hash: '#export' });
+    }
+    return links;
+  }, [permissions]);
+
+  const toggleSidebar = () => setSidebarOpen((prev) => !prev);
 
   // ── Fetch badge count ───────────────────────────────────────────────────────
   const refreshBadge = useCallback(async () => {
@@ -267,9 +352,12 @@ export default function Layout() {
 
   // On mount + every 60s — keeps badge accurate
   useEffect(() => {
-    refreshBadge();
+    const initialLoad = setTimeout(refreshBadge, 0);
     const interval = setInterval(refreshBadge, 60_000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialLoad);
+      clearInterval(interval);
+    };
   }, [refreshBadge]);
 
   // ── Poll for due reminders every 60s → show toast ──────────────────────────
@@ -307,10 +395,43 @@ export default function Layout() {
   // ── Toast handlers ──────────────────────────────────────────────────────────
   const dismissToast = useCallback(() => setDueToast(null), []);
 
-  const completeFromToast = useCallback((id) => {
+  const completeFromToast = useCallback(() => {
     setDueToast(null);
     setReminderBadge((prev) => Math.max(0, prev - 1));
   }, []);
+
+  const handleSearchSubmit = useCallback((event) => {
+    event.preventDefault();
+    const query = searchValue.trim();
+    setSidebarOpen(false);
+    setBellOpen(false);
+    navigate(query ? `/contacts?search=${encodeURIComponent(query)}` : '/contacts');
+  }, [navigate, searchValue]);
+
+  const handleAddLead = useCallback(() => {
+    setSidebarOpen(false);
+    setBellOpen(false);
+    navigate('/contacts?new=1');
+  }, [navigate]);
+
+  const closeSidebarMenu = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
+
+  const handleMobileSearch = useCallback(() => {
+    setSidebarOpen(false);
+    navigate('/contacts');
+  }, [navigate]);
+
+  const closeLeadFormQuery = useCallback(() => {
+    const params = new URLSearchParams(location.search);
+    params.delete('new');
+    const query = params.toString();
+    navigate(
+      query ? { pathname: '/contacts', search: `?${query}` } : '/contacts',
+      { replace: true }
+    );
+  }, [location.search, navigate]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FFFCF8] text-gray-800 antialiased selection:bg-orange-100 selection:text-orange-600">
@@ -332,7 +453,14 @@ export default function Layout() {
         <div className="flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-[#FF7F40] shadow-lg shadow-orange-500/20" />
-            <span className="text-base sm:text-lg font-medium tracking-tight text-gray-900">LeadFlow</span>
+            <div className="min-w-0">
+              <span className="block text-base sm:text-lg font-medium tracking-tight text-gray-900">
+                LeadFlow
+              </span>
+              <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-400">
+                {workspaceName}
+              </span>
+            </div>
           </div>
           <button className="lg:hidden text-gray-400 hover:text-gray-600" onClick={toggleSidebar}>
             <X size={20} />
@@ -341,87 +469,60 @@ export default function Layout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto pt-4 sm:pt-6 px-2 sm:px-3 pb-4 sm:pb-6 space-y-1">
+          {PRIMARY_NAV_ITEMS.map((item) => (
+            <SidebarNavLink
+              key={item.to}
+              to={item.to}
+              label={item.label}
+              icon={item.icon}
+              end={item.end}
+              badge={item.to === '/inbox' && reminderBadge > 0 ? (reminderBadge > 9 ? '9+' : reminderBadge) : null}
+              onClick={closeSidebarMenu}
+            />
+          ))}
 
-          <NavLink to="/dashboard" className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${isActive ? 'bg-orange-50 text-gray-900 border border-orange-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-            <LayoutDashboard className="h-5 w-5 sm:h-4 sm:w-4 text-[#FF7F40]" />
-            Overview
-          </NavLink>
-
-          <NavLink to="/pipeline" className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${isActive ? 'bg-orange-50 text-gray-900 border border-orange-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-            <TrendingUp className="h-5 w-5 sm:h-4 sm:w-4 text-gray-400 group-hover:text-gray-900" />
-            Pipeline
-          </NavLink>
-
-          <NavLink to="/contacts" className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${isActive ? 'bg-orange-50 text-gray-900 border border-orange-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-            <Users className="h-5 w-5 sm:h-4 sm:w-4 text-gray-400 group-hover:text-gray-900" />
-            Contacts
-          </NavLink>
-
-          <NavLink to="/reports" className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${isActive ? 'bg-orange-50 text-gray-900 border border-orange-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-            <BarChart3 className="h-5 w-5 sm:h-4 sm:w-4 text-gray-400 group-hover:text-gray-900" />
-            Reports
-          </NavLink>
-
-          {/* Inbox — badge shows pending count */}
-          <NavLink to="/inbox" className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${isActive ? 'bg-orange-50 text-gray-900 border border-orange-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-            <Inbox className="h-5 w-5 sm:h-4 sm:w-4 text-gray-400 group-hover:text-gray-900" />
-            Inbox
-            {reminderBadge > 0 && (
-              <span className="ml-auto rounded-full bg-[#FF7F40] px-2 py-0.5 text-xs font-semibold text-white">
-                {reminderBadge}
-              </span>
-            )}
-          </NavLink>
-
-          {/* Dropdowns */}
-          <div className="pt-4 mt-4 border-t border-gray-100">
-            <div className="bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-100">
-
-              {[
-                { key: 'sales',        icon: DollarSign, label: 'Sales',        links: [{ to: '/pipeline', label: 'Pipeline' }, { to: '/forecasts', label: 'Forecasts' }, { to: '/analytics', label: 'Analytics' }] },
-                { key: 'activities',   icon: Calendar,   label: 'Activities',   links: [{ to: '/tasks', label: 'Tasks' }, { to: '/meetings', label: 'Meetings' }, { to: '/calls', label: 'Calls' }] },
-                { key: 'integrations', icon: Zap,        label: 'Integrations', links: [{ to: '/email', label: 'Email' }, { to: '/calendar', label: 'Calendar' }, { to: '/apps', label: 'Apps' }] },
-              ].map(({ key, icon: Icon, label, links }) => (
-                <div key={key} className="space-y-1">
-                  <button
-                    onClick={() => toggleDropdown(key)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white rounded-lg transition-all"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-[#FF7F40]" />
-                      <span>{label}</span>
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${dropdowns[key] ? 'rotate-180' : ''}`} />
-                  </button>
-                  {dropdowns[key] && (
-                    <div className="pl-9 space-y-1">
-                      {links.map((l) => (
-                        <Link key={l.to} to={l.to} className="block px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900 rounded-md hover:bg-white">
-                          {l.label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+          {workspaceLinks.length > 0 && (
+            <div className="pt-4 mt-4 border-t border-gray-100">
+              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                Workspace
+              </p>
+              <div className="space-y-1">
+                {workspaceLinks.map((item) => (
+                  <WorkspaceQuickLink
+                    key={item.to}
+                    to={item.to}
+                    label={item.label}
+                    icon={item.icon}
+                    active={location.pathname === '/settings' && location.hash === item.hash}
+                    onClick={closeSidebarMenu}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </nav>
 
         {/* Bottom */}
         <div className="border-t border-gray-100 p-3 sm:p-4">
-          <NavLink to="/settings" className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${isActive ? 'bg-orange-50 text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+          <NavLink
+            to="/settings"
+            onClick={closeSidebarMenu}
+            className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-2.5 sm:py-2 text-sm font-medium transition-all ${
+              isActive ? 'bg-orange-50 text-gray-900' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
             <Settings className="h-5 w-5 sm:h-4 sm:w-4 text-gray-400 group-hover:text-gray-900" />
             Settings
           </NavLink>
           <div className="mt-3 sm:mt-4 flex items-center gap-3 px-3">
-            <div className="relative h-8 w-8 rounded-full bg-gray-200">
-              <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" className="h-full w-full rounded-full object-cover ring-2 ring-white" />
-              <span className="absolute bottom-0 right-0 block h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+            <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-xs font-semibold text-[#FF7F40] ring-2 ring-white">
+              {userInitial}
             </div>
-            <div className="text-sm">
-              <p className="font-medium text-gray-900">Alex M.</p>
-              <p className="text-xs text-gray-400">Head of Sales</p>
+            <div className="min-w-0 text-sm">
+              <p className="truncate font-medium text-gray-900">{userName}</p>
+              <p className="truncate text-xs text-gray-400">
+                {workspaceName} - {roleLabel}
+              </p>
             </div>
           </div>
         </div>
@@ -436,38 +537,50 @@ export default function Layout() {
             <button className="text-gray-500 hover:text-gray-700 p-1" onClick={toggleSidebar}>
               <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <div className="w-6 h-6 rounded-full bg-[#FF7F40]" />
-              <span className="text-base sm:text-lg font-medium tracking-tight text-gray-900">LeadFlow</span>
+              <div className="min-w-0">
+                <span className="block text-base sm:text-lg font-medium tracking-tight text-gray-900">
+                  LeadFlow
+                </span>
+                <span className="block text-[10px] text-gray-400">{pageMeta.title}</span>
+              </div>
             </div>
           </div>
 
           <div className="hidden lg:block">
-            <nav className="flex text-sm font-medium text-gray-500">
-              <span className="hover:text-gray-900 cursor-pointer">Dashboards</span>
+            <nav className="flex items-center text-sm font-medium text-gray-500">
+              <span className="text-gray-500">{workspaceName}</span>
               <span className="mx-2 text-gray-300">/</span>
-              <span className="text-gray-900">Sales Overview</span>
+              <span className="text-gray-900">{pageMeta.title}</span>
             </nav>
+            <p className="mt-1 text-xs text-gray-400">{pageMeta.section}</p>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 lg:gap-6">
-            <button className="sm:hidden rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors">
+            <button
+              type="button"
+              className="sm:hidden rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-colors"
+              onClick={handleMobileSearch}
+            >
               <Search className="h-5 w-5" />
             </button>
 
-            <div className="relative hidden sm:block group">
+            <form onSubmit={handleSearchSubmit} className="relative hidden sm:block group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-gray-600" />
               <input
                 type="text"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
                 placeholder="Search leads..."
                 className="h-9 w-40 md:w-56 lg:w-64 rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-4 text-sm outline-none ring-orange-200 transition-all focus:bg-white focus:ring-2 focus:border-transparent placeholder:text-gray-400"
               />
-            </div>
+            </form>
 
             {/* Bell with popover */}
             <div className="relative" ref={bellRef}>
               <button
-                onClick={() => setBellOpen((o) => !o)}
+                onClick={() => setBellOpen((open) => !open)}
                 className={`relative rounded-lg p-2 transition-colors ${
                   bellOpen ? 'bg-orange-50 text-[#FF7F40]' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
                 }`}
@@ -482,13 +595,20 @@ export default function Layout() {
 
               {bellOpen && (
                 <BellPopover
-                  onClose={() => { setBellOpen(false); refreshBadge(); }}
+                  onClose={() => {
+                    setBellOpen(false);
+                    refreshBadge();
+                  }}
                   onBadgeChange={setReminderBadge}
                 />
               )}
             </div>
 
-            <button className="inline-flex items-center gap-2 rounded-lg bg-[#FF7F40] px-3 sm:px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95">
+            <button
+              type="button"
+              onClick={handleAddLead}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#FF7F40] px-3 sm:px-4 py-2 text-sm font-medium text-white shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95"
+            >
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Add Lead</span>
             </button>
@@ -497,7 +617,7 @@ export default function Layout() {
 
         {/* Page content */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8">
-          <Outlet />
+          <Outlet context={{ closeLeadFormQuery }} />
         </div>
       </main>
 
