@@ -49,4 +49,20 @@ export const WORKSPACE_ROLE_DISPLAY = {
   member: 'Member',
 };
 
+/** Shareable accept link — no email required; admin sends via WhatsApp/copy. */
+export function buildInviteAcceptUrl(token) {
+  const base = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  return `${base}/invite/accept?token=${token}`;
+}
+
+export function buildWhatsAppInviteShareUrl({ inviteUrl, workspaceName, role, inviteeEmail }) {
+  const roleLabel = WORKSPACE_ROLE_DISPLAY[role] || role;
+  const message = [
+    `You're invited to join ${workspaceName} on LeadFlow as ${roleLabel}.`,
+    inviteeEmail ? `Use this email when signing up: ${inviteeEmail}` : '',
+    `Open this link after signing in: ${inviteUrl}`,
+  ].filter(Boolean).join('\n');
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
+
 export default workspaceService;

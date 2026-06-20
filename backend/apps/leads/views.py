@@ -76,7 +76,7 @@ class LeadViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
-        instance = self.instance
+        instance = serializer.instance
         old = {
             'status': instance.status,
             'assigned_to_id': instance.assigned_to_id,

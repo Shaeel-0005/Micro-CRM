@@ -9,13 +9,19 @@
 Get Phase 2 to a state safe to put in front of real team users: fix the permission bug blocking admins, decide the invite-without-email workflow, confirm role enforcement end-to-end.
 
 ## In progress
-- [ ] **P0 bug:** Admin cannot change a lead's `status`. Likely a permission-class or queryset issue in the leads viewset PATCH path — object-level check is probably falling back to `assigned_to`/`owner` instead of role. See `07_RISKS_BUGS.md` #1.
-- [ ] Decide the invite-without-email workflow (see `03_DECISION_LOG.md` — open decision)
+- [ ] Manual smoke test on production/staging: admin status change, invite link flow, member visibility
 
-## Up next (this sprint, after the above)
-- [ ] Verify the full role matrix against live endpoints (Admin / Manager / Member × view / edit / assign / delete / export / audit)
-- [ ] Confirm the Phase 1 `Note` migration fully replaced old `LeadActivity` data with no orphaned records
-- [ ] Re-run backend test suite (last known: 8/8 passing for workspaces, 11/11 for leads) — confirm still green after the bug fix
+## Done this sprint
+- [x] **P0 bug:** Admin cannot change lead `status` — fixed (`perform_update` used `self.instance`; serializer auto-clears `lost_reason`; frontend surfaces errors)
+- [x] **Invite-without-email workflow** — shareable link + Copy + WhatsApp share; auto-accept when logged in (see `03_DECISION_LOG.md`)
+- [x] **Role matrix tests** — Admin/Manager/Member PATCH, export CSV, audit log
+- [x] **Note migration audit** — schema tests + static 0003 check + `python manage.py audit_note_migration` for prod/local DB
+- [x] **Phase 1 regression tests** — notes CRUD, `money_stats`, `stats`, invite accept flow
+- [x] **Full backend suite** — **25/25 OK** (apps.leads)
+
+## Up next
+- [ ] Production smoke test checklist (admin PATCH status, invite WhatsApp link, member sees only assigned leads)
+- [ ] Phase 2 sign-off → ready for real team users
 
 ## Blocked / waiting
 - None currently
@@ -34,4 +40,5 @@ Get Phase 2 to a state safe to put in front of real team users: fix the permissi
 ## Session log
 > Optional, append-only. One line per session: date, what you touched, what's left.
 
-- _(add entries here as you work)_
+- 2026-06-17 — Fixed P0 lead status PATCH; WhatsApp invite links; role-matrix tests (17/17). Left: Note migration audit + prod smoke test.
+- 2026-06-17 — Note migration audit (25/25 tests), `audit_note_migration` command, Phase 1 regression + invite accept tests. Left: prod smoke test only.

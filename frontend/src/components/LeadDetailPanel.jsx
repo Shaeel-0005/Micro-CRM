@@ -347,6 +347,7 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
   const [error, setError] = useState(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [statusError, setStatusError] = useState('');
 
   useEffect(() => { setLeadState(lead); }, [lead]);
 
@@ -375,11 +376,23 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
   const handleStatusChange = async (newStatus) => {
     setStatusMenuOpen(false);
     setChangingStatus(true);
+    setStatusError('');
     try {
-      await leadsService.partialUpdate(leadState.id, { status: newStatus });
-      setLeadState((prev) => ({ ...prev, status: newStatus }));
+      const updated = await leadsService.partialUpdate(leadState.id, { status: newStatus });
+      setLeadState((prev) => ({
+        ...prev,
+        status: updated.status ?? newStatus,
+        lost_reason: updated.lost_reason ?? null,
+      }));
       if (onUpdate) onUpdate(leadState.id, newStatus);
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      const data = err.response?.data;
+      const message = data?.lost_reason?.[0]
+        ?? data?.detail
+        ?? data?.status?.[0]
+        ?? 'Failed to update status. Please try again.';
+      setStatusError(message);
+    } finally {
       setChangingStatus(false);
     }
   };
@@ -435,6 +448,12 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
                 )}
               </div>
             </div>
+            {statusError && (
+              <div className="flex items-center gap-2 text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                {statusError}
+              </div>
+            )}
 
             {dealLabel && (
               <div className="flex items-center gap-2.5 text-sm">

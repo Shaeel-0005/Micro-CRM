@@ -23,7 +23,7 @@ A solo founder, software engineering student, building this under real financial
 8. **Build order:** backend models → migrations → serializers → views/permissions → frontend service → component. Test each layer before moving to the next.
 
 ## Current known blocker
-Admin role cannot currently change a lead's status. See `07_RISKS_BUGS.md` #1. If you're touching the leads or permissions code at all, check whether this is still open before doing anything else there.
+None — P0 lead status bug fixed. Next: Phase 1 Note migration audit + production smoke test before Phase 2 sign-off.
 
 ## What NOT to build right now
 - Full WhatsApp Business API integration

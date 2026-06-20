@@ -6,13 +6,8 @@ Severity: **P0** blocker · **P1** important · **P2** minor. Status: Open / Fix
 
 ## Active bugs
 
-### #1 — P0 — Open
-**Admin cannot change a lead's status/stage.**
-Reported during Phase 2 stabilization. Almost certainly a permission-class or object-level check bug — likely the lead-update view checks `assigned_to`/`owner` instead of the `lead.edit_all` permission key for Admin/Manager. **Fix this before any further Phase 2 work** — it breaks the core role promise that Admin = full control.
-Where to look first: the lead viewset's `has_object_permission`, and whether `status` updates go through a different code path (e.g. a dedicated "move stage" endpoint) than the general lead PATCH.
-
-### #2 — P1 — Open
-**Team invites have no email delivery.** Admin gets a token and must manually share it. Real UX gap for non-technical invitees, and a blocker to calling Phase 2 "done." See `03_DECISION_LOG.md` for options under consideration.
+### #2 — P1 — Monitoring
+**Team invites have no email delivery.** Mitigated for Phase 2: admin shares a one-click invite link via WhatsApp or copy-paste. Full email delivery remains Phase 3 (`04_FEATURE_BACKLOG.md`).
 
 ---
 
@@ -30,5 +25,6 @@ Where to look first: the lead viewset's `has_object_permission`, and whether `st
 ---
 
 ## Resolved
+- ~~Admin cannot change a lead's status/stage~~ — fixed: `perform_update` used invalid `self.instance` (AttributeError after save); serializer now auto-clears `lost_reason` when leaving Lost; frontend shows PATCH errors.
 - ~~`runserver` crashing locally due to default Postgres connection~~ — fixed; local dev now defaults to SQLite when `DATABASE_URL` is unset.
 - ~~Nested router blocking lead PATCH (405 errors) on the notes endpoint~~ — fixed; switched to `SimpleRouter`.

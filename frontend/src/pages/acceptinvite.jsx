@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Users, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import workspaceService from '../services/workspaceService';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,19 +11,16 @@ export default function AcceptInvitePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const { isAuthenticated, refreshProfile } = useAuth();
+  const { isAuthenticated, loading: authLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!isAuthenticated) {
-      navigate(`/login?next=/invite/accept?token=${encodeURIComponent(token)}`);
-      return;
-    }
+  const acceptToken = async (value) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
     setLoading(true);
     setError('');
     try {
-      await workspaceService.acceptInvite(token.trim());
+      await workspaceService.acceptInvite(trimmed);
       await refreshProfile();
       setSuccess(true);
       setTimeout(() => navigate('/dashboard'), 2000);
@@ -32,6 +29,22 @@ export default function AcceptInvitePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Auto-accept when user opens a share link while already signed in
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !tokenFromUrl || success || loading) return;
+    acceptToken(tokenFromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, tokenFromUrl]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      navigate(`/login?next=${encodeURIComponent(`/invite/accept?token=${token}`)}`);
+      return;
+    }
+    await acceptToken(token);
   };
 
   return (
@@ -43,7 +56,9 @@ export default function AcceptInvitePage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Join Workspace</h1>
-            <p className="text-sm text-gray-500">Enter your invite token to join the team</p>
+            <p className="text-sm text-gray-500">
+              {tokenFromUrl ? 'Accepting your team invite…' : 'Paste your invite link or token'}
+            </p>
           </div>
         </div>
 
@@ -52,6 +67,11 @@ export default function AcceptInvitePage() {
             <CheckCircle className="h-5 w-5" />
             Invite accepted! Redirecting to dashboard...
           </div>
+        ) : loading && tokenFromUrl ? (
+          <div className="flex items-center gap-3 text-gray-600 text-sm">
+            <Loader2 className="h-5 w-5 animate-spin text-[#FF7F40]" />
+            Joining workspace...
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -59,29 +79,33 @@ export default function AcceptInvitePage() {
                 <AlertCircle className="h-4 w-4 flex-shrink-0" /> {error}
               </div>
             )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Invite Token</label>
-              <input
-                type="text"
-                required
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Paste invite token"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-mono"
-              />
-            </div>
+            {!tokenFromUrl && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Invite Token</label>
+                <input
+                  type="text"
+                  required
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="Paste invite token"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-mono"
+                />
+              </div>
+            )}
             {!isAuthenticated && (
               <p className="text-xs text-gray-500">
-                You need to <Link to="/login" className="text-[#FF7F40] font-medium">sign in</Link> first with the email the invite was sent to.
+                Sign up or <Link to={`/login?next=${encodeURIComponent(`/invite/accept?token=${token || tokenFromUrl}`)}`} className="text-[#FF7F40] font-medium">log in</Link> with the email your admin used for the invite, then return to this link.
               </p>
             )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-[#FF7F40] py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
-            >
-              {loading ? 'Joining...' : 'Accept Invite'}
-            </button>
+            {!tokenFromUrl && (
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg bg-[#FF7F40] py-2.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+              >
+                {loading ? 'Joining...' : 'Accept Invite'}
+              </button>
+            )}
           </form>
         )}
       </div>

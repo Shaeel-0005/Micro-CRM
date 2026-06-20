@@ -12,15 +12,12 @@ Alternatives considered:
 
 ---
 
-## [OPEN] — Team invite flow without email
-**Context:** Admin invites currently create a token but no email is sent (only `apps/reminders` sends real email today). The invitee must manually receive/share the token and visit `/invite/accept?token=...`. Real workflow gap for non-technical team members.
-**Decision:** Not yet made.
+## [DECIDED] — Team invite flow without email
+**Context:** Admin invites create a token but no email is sent. Invitee workflow was too manual (copy raw UUID).
+**Decision:** Generate a shareable accept URL (`/invite/accept?token=...`) with **Copy link** and **Share via WhatsApp** buttons in Team Settings. Invitee signs up/logs in with the invited email, opens the link — auto-accepts if already authenticated. No SMTP in Phase 2; consistent with WhatsApp-first product pattern.
 **Alternatives considered:**
-- Wire SMTP/SendGrid/Resend into the invite flow (adds an infra dependency)
-- Generate a shareable invite link (no email) that's easy to send manually via WhatsApp — consistent with the product's existing WhatsApp-first pattern
-- Defer entirely until Phase 3
-
-**Resolve before Phase 2 sign-off.**
+- Wire SMTP/SendGrid/Resend (deferred — infra dependency, Phase 3 email integration)
+- Defer entirely until Phase 3 (rejected — blocks real team onboarding now)
 
 ---
 

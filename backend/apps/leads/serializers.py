@@ -110,8 +110,8 @@ class BaseLeadSerializer(serializers.ModelSerializer):
 
         if status_value == 'lost' and not lost_reason:
             raise serializers.ValidationError({'lost_reason': "Required when status is 'lost'."})
-        if status_value != 'lost' and lost_reason:
-            raise serializers.ValidationError({'lost_reason': "Must be blank unless status is 'lost'."})
+        if status_value != 'lost':
+            attrs['lost_reason'] = None
         if deal_value is not None and deal_value < 0:
             raise serializers.ValidationError({'deal_value': 'Must be >= 0.'})
         return attrs

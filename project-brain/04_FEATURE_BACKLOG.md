@@ -25,14 +25,16 @@ Goal: reduce churn below 10%, get testimonials from Phase 1 customers.
 - [x] WorkspaceMembership (Admin/Manager/Member roles)
 - [x] Signup auto-creates workspace (creator = Admin)
 - [x] Role-based lead visibility + permission classes
-- [x] WorkspaceInvite (token-based; no email yet — open decision, see `03_DECISION_LOG.md`)
+- [x] WorkspaceInvite (token-based; shareable link + WhatsApp — no email)
 - [x] AuditLog (lead changes, role changes, invites, CSV export)
 - [x] CSV export (Admin/Manager)
 - [x] Lead tags + saved views
 - [x] Basic proposal tracking (Drafted → Sent → Viewed → Accepted/Rejected)
-- [ ] **Fix: Admin cannot change lead status** (P0 — see `07_RISKS_BUGS.md`)
-- [ ] Decide + implement invite-without-email workflow
-- [ ] Full role-matrix verification pass
+- [x] **Fix: Admin cannot change lead status** (P0 — see `07_RISKS_BUGS.md` resolved)
+- [x] Invite-without-email workflow (shareable link + WhatsApp)
+- [x] Role-matrix automated test pass (25 tests)
+- [x] Note migration audit (`audit_note_migration` + schema tests)
+- [ ] Full role-matrix manual smoke on production
 
 ---
 
