@@ -9,6 +9,8 @@
 4. `01_ARCHITECTURE_MAP.md` — how it's built
 5. Only then: the relevant code files
 
+Before production deploy or Phase 2 sign-off, run `09_SMOKE_TEST.md`.
+
 ## Who you're working with
 A solo founder, software engineering student, building this under real financial pressure — income needs to come from freelancing + this SaaS as soon as possible. Priority is shipping working, safe code — not perfect architecture. Don't over-engineer.
 

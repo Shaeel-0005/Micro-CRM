@@ -9,7 +9,7 @@
 Get Phase 2 to a state safe to put in front of real team users: fix the permission bug blocking admins, decide the invite-without-email workflow, confirm role enforcement end-to-end.
 
 ## In progress
-- [ ] Manual smoke test on production/staging: admin status change, invite link flow, member visibility
+- [ ] Manual smoke test on production — use `09_SMOKE_TEST.md` checklist
 
 ## Done this sprint
 - [x] **P0 bug:** Admin cannot change lead `status` — fixed (`perform_update` used `self.instance`; serializer auto-clears `lost_reason`; frontend surfaces errors)
@@ -20,8 +20,7 @@ Get Phase 2 to a state safe to put in front of real team users: fix the permissi
 - [x] **Full backend suite** — **25/25 OK** (apps.leads)
 
 ## Up next
-- [ ] Production smoke test checklist (admin PATCH status, invite WhatsApp link, member sees only assigned leads)
-- [ ] Phase 2 sign-off → ready for real team users
+- [ ] Complete production smoke test (`09_SMOKE_TEST.md`) and mark Phase 2 sign-off
 
 ## Blocked / waiting
 - None currently
@@ -41,4 +40,4 @@ Get Phase 2 to a state safe to put in front of real team users: fix the permissi
 > Optional, append-only. One line per session: date, what you touched, what's left.
 
 - 2026-06-17 — Fixed P0 lead status PATCH; WhatsApp invite links; role-matrix tests (17/17). Left: Note migration audit + prod smoke test.
-- 2026-06-17 — Note migration audit (25/25 tests), `audit_note_migration` command, Phase 1 regression + invite accept tests. Left: prod smoke test only.
+- 2026-06-17 — Note migration audit (25/25 tests), `audit_note_migration` command. Committed `7b85ab0`, pushed main. Added `09_SMOKE_TEST.md`. Left: prod smoke test.
