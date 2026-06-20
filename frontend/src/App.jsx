@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Home, Login, Signup } from './pages';
+import { Home, Login, Signup, AcceptInvite } from './pages';
 import { Layout, Overview, Contacts, Settings, Pipeline, Reports, Inbox } from './components';
 import PrivateRoute from './components/PrivateRoute';
 import { wakeUpBackend } from './services/api';
@@ -19,6 +19,7 @@ export default function App() {
       <Route path="/"       element={<Home />} />
       <Route path="/login"  element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/invite/accept" element={<AcceptInvite />} />
 
       {/* ── Protected routes ────────────────────────────────────────────── */}
       {/* PrivateRoute checks auth. If not logged in → /login              */}

@@ -17,6 +17,7 @@ urlpatterns = [
     
     # Auth endpoints (from Day 3)
     path('api/auth/', include('apps.users.urls')),
+    path('api/workspaces/', include('apps.workspaces.urls')),
     
     # Leads API endpoints (Day 4)
     path('api/leads/', include('apps.leads.urls')),

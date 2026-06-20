@@ -9,6 +9,10 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
+
+from apps.workspaces.services import create_workspace_for_user
+
+
 class SignupView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
@@ -41,6 +45,8 @@ class SignupView(APIView):
             email=email or '',
             password=password
         )
+
+        membership = create_workspace_for_user(user)
         
         # Generate tokens
         refresh = RefreshToken.for_user(user)
@@ -51,18 +57,35 @@ class SignupView(APIView):
                 'username': user.username,
                 'email': user.email
             },
+            'workspace': {
+                'id': membership.workspace.id,
+                'name': membership.workspace.name,
+                'role': membership.role,
+            },
             'refresh': str(refresh),
             'access': str(refresh.access_token),
         }, status=status.HTTP_201_CREATED)
 
 
 # A little "show me off" view for your authenticated users
+from apps.workspaces.services import get_active_membership
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def whoami(request):
     user = request.user
-    return Response({
+    membership = get_active_membership(user)
+    payload = {
         'id': user.id,
         'username': user.username,
-        'email': user.email
-    })
+        'email': user.email,
+    }
+    if membership:
+        payload['workspace'] = {
+            'id': membership.workspace.id,
+            'name': membership.workspace.name,
+            'role': membership.role,
+            'role_display': membership.get_role_display(),
+        }
+    return Response(payload)

@@ -37,6 +37,13 @@ class Lead(models.Model):
     ]
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='leads')
+    workspace = models.ForeignKey(
+        'workspaces.Workspace',
+        on_delete=models.CASCADE,
+        related_name='leads',
+        null=True,
+        blank=True,
+    )
     assigned_to = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -54,6 +61,7 @@ class Lead(models.Model):
     deal_currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='PKR')
     expected_close_date = models.DateField(null=True, blank=True)
     lost_reason = models.CharField(max_length=20, choices=LOST_REASON_CHOICES, blank=True, null=True)
+    tags = models.ManyToManyField('LeadTag', blank=True, related_name='leads')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -90,3 +98,74 @@ class Note(models.Model):
 
     def __str__(self):
         return f"{self.note_type} on {self.lead.name}"
+
+
+class LeadTag(models.Model):
+    workspace = models.ForeignKey(
+        'workspaces.Workspace',
+        on_delete=models.CASCADE,
+        related_name='lead_tags',
+    )
+    name = models.CharField(max_length=50)
+    color = models.CharField(max_length=20, default='#FF7F40')
+
+    class Meta:
+        unique_together = [('workspace', 'name')]
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class SavedView(models.Model):
+    workspace = models.ForeignKey(
+        'workspaces.Workspace',
+        on_delete=models.CASCADE,
+        related_name='saved_views',
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_views')
+    name = models.CharField(max_length=100)
+    filters = models.JSONField(default=dict, blank=True)
+    is_shared = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class Proposal(models.Model):
+    STATUS_CHOICES = [
+        ('drafted', 'Drafted'),
+        ('sent', 'Sent'),
+        ('viewed', 'Viewed'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+    ]
+
+    workspace = models.ForeignKey(
+        'workspaces.Workspace',
+        on_delete=models.CASCADE,
+        related_name='proposals',
+    )
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='proposals')
+    title = models.CharField(max_length=200)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='drafted')
+    content = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_proposals',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.status})"

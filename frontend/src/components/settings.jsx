@@ -11,6 +11,7 @@ import {
   Moon, Globe, Trash2, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import TeamSettings from './TeamSettings';
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 function Section({ title, description, children }) {
@@ -86,7 +87,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6">
 
       {/* Page header */}
       <div>
@@ -105,6 +106,11 @@ export default function Settings() {
           <div>
             <p className="font-medium text-gray-900">{user?.username ?? '—'}</p>
             <p className="text-xs text-gray-500 mt-0.5">{user?.email ?? 'No email on file'}</p>
+            {user?.workspace && (
+              <p className="text-xs text-[#FF7F40] mt-1">
+                {user.workspace.name} · {user.workspace.role_display ?? user.workspace.role}
+              </p>
+            )}
           </div>
         </div>
 
@@ -124,6 +130,9 @@ export default function Settings() {
           <ChevronRight className="h-4 w-4 text-gray-400" />
         </SettingRow>
       </Section>
+
+      {/* ── Team & Workspace (Phase 2) ───────────────────────────────────── */}
+      <TeamSettings />
 
       {/* ── Notifications ────────────────────────────────────────────────── */}
       <Section title="Notifications" description="Choose what you want to be notified about">

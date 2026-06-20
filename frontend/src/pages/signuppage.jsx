@@ -3,6 +3,7 @@ import { Mail, Lock, User, Eye, EyeOff, Check, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from 'framer-motion';
 import { authAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +16,7 @@ const SignupPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   // --- Animation Variants ---
   const fadeInUp = {
@@ -76,11 +78,11 @@ const SignupPage = () => {
         formData.password
       );
       
-      // Store tokens
-      localStorage.setItem('access_token', data.access);
-      localStorage.setItem('refresh_token', data.refresh);
+      await login(
+        { access: data.access, refresh: data.refresh },
+        { id: data.user?.id, username: data.user?.username, email: data.user?.email, workspace: data.workspace }
+      );
       
-      // Redirect to dashboard
       navigate('/dashboard');
     } catch (err) {
       setError(

@@ -1,72 +1,87 @@
 /**
  * context/AuthContext.jsx
- * Global authentication state.
- * Wrap your app with <AuthProvider> and consume with useAuth().
+ * Global authentication + workspace permissions state.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authAPI } from '../services/api';
-
-// ─── Context ──────────────────────────────────────────────────────────────────
+import workspaceService from '../services/workspaceService';
 
 const AuthContext = createContext(null);
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true); // true on first mount while we verify token
+  const [user, setUser] = useState(null);
+  const [workspace, setWorkspace] = useState(null);
+  const [permissions, setPermissions] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  /**
-   * On mount: if a token exists in localStorage, fetch the current user
-   * so the app knows who is logged in after a page refresh.
-   */
- useEffect(() => {
-  const initAuth = async () => {
+  const fetchProfile = useCallback(async () => {
     const token = localStorage.getItem('access_token');
-
     if (!token) {
-      setLoading(false);
-      return;
+      setUser(null);
+      setWorkspace(null);
+      setPermissions({});
+      return null;
     }
 
-    // Token exists — treat user as authenticated
-    // If you add a /auth/user/ endpoint later, fetch it here
-    setUser({ username: 'user' });
-    setLoading(false);
-  };
+    try {
+      const [whoami, wsMe] = await Promise.all([
+        authAPI.whoami(),
+        workspaceService.getMe().catch(() => null),
+      ]);
+      const profile = {
+        id: whoami.id,
+        username: whoami.username,
+        email: whoami.email,
+        workspace: whoami.workspace ?? wsMe?.workspace ?? null,
+        role: whoami.workspace?.role ?? wsMe?.role ?? null,
+      };
+      setUser(profile);
+      setWorkspace(wsMe?.workspace ?? whoami.workspace ?? null);
+      setPermissions(wsMe?.permissions ?? {});
+      return profile;
+    } catch {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      setUser(null);
+      setWorkspace(null);
+      setPermissions({});
+      return null;
+    }
+  }, []);
 
-  initAuth();
-}, []);
-  // ── Actions ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchProfile().finally(() => setLoading(false));
+  }, [fetchProfile]);
 
-  /**
-   * Login — stores tokens and sets user state.
-   * Called by LoginPage after a successful authAPI.login() response.
-   */
-  const login = useCallback((tokens, userData) => {
+  const login = useCallback(async (tokens, fallbackUser) => {
     localStorage.setItem('access_token', tokens.access);
     localStorage.setItem('refresh_token', tokens.refresh);
-    setUser(userData);
-  }, []);
+    if (fallbackUser?.id) {
+      setUser(fallbackUser);
+    }
+    await fetchProfile();
+  }, [fetchProfile]);
 
-  /**
-   * Logout — clears tokens and user state.
-   * PrivateRoute and Layout can call this.
-   */
   const logout = useCallback(() => {
-    authAPI.logout(); // clears localStorage
+    authAPI.logout();
     setUser(null);
+    setWorkspace(null);
+    setPermissions({});
   }, []);
-
-  // ── Value ────────────────────────────────────────────────────────────────────
 
   const value = {
     user,
+    workspace,
+    permissions,
     loading,
     login,
     logout,
+    refreshProfile: fetchProfile,
     isAuthenticated: !!user,
+    canAssignLeads: !!permissions.can_assign_leads,
+    canExportCsv: !!permissions.can_export_csv,
+    canManageTeam: !!permissions.can_manage_team,
   };
 
   return (
@@ -76,14 +91,6 @@ export function AuthProvider({ children }) {
   );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-
-/**
- * useAuth()
- * Access auth state anywhere in the app.
- *
- * const { user, isAuthenticated, login, logout } = useAuth();
- */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

@@ -18,19 +18,28 @@ Routes:
 """
 
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter, SimpleRouter
-from .views import LeadViewSet, NoteViewSet
+from rest_framework.routers import SimpleRouter
+from .views import (
+    LeadViewSet,
+    LeadTagViewSet,
+    NoteViewSet,
+    ProposalViewSet,
+    SavedViewViewSet,
+)
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register(r'', LeadViewSet, basename='lead')
 
 note_router = SimpleRouter()
 note_router.register(r'notes', NoteViewSet, basename='lead-note')
 
-urlpatterns = [
-    # All nested note routes first (more specific)
-    path('<int:lead_pk>/', include(note_router.urls)),
+meta_router = SimpleRouter()
+meta_router.register(r'tags', LeadTagViewSet, basename='lead-tag')
+meta_router.register(r'saved-views', SavedViewViewSet, basename='saved-view')
+meta_router.register(r'proposals', ProposalViewSet, basename='proposal')
 
-    # All lead routes
+urlpatterns = [
+    path('<int:lead_pk>/', include(note_router.urls)),
+    path('', include(meta_router.urls)),
     path('', include(router.urls)),
 ]

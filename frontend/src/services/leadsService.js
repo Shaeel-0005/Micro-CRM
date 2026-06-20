@@ -45,6 +45,11 @@ const leadsService = {
     return response.data;
   },
 
+  exportCsv: async () => {
+    const response = await api.get('/leads/export_csv/', { responseType: 'blob' });
+    return response.data;
+  },
+
   search: async (query) => leadsService.getAll({ search: query }),
 };
 

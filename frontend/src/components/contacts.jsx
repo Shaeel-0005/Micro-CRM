@@ -13,6 +13,8 @@ import leadsService, {
   LEAD_STATUS_DISPLAY,
   LEAD_SOURCE_DISPLAY,
 } from '../services/leadsService';
+import metaService from '../services/metaService';
+import { useAuth } from '../context/AuthContext';
 import LeadDetailPanel from './LeadDetailPanel';
 import LeadForm from './Leadform';
 
@@ -89,7 +91,11 @@ function SortButton({ label, field, current, direction, onChange }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function Contacts() {
+  const { canExportCsv } = useAuth();
   const [contacts, setContacts]         = useState([]);
+  const [tags, setTags]                 = useState([]);
+  const [savedViews, setSavedViews]     = useState([]);
+  const [filterTag, setFilterTag]       = useState('');
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
   const [searchQuery, setSearchQuery]   = useState('');
@@ -101,10 +107,10 @@ export default function Contacts() {
   const [starred, setStarred]           = useState({});
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
-  const fetchContacts = useCallback(async () => {
+  const fetchContacts = useCallback(async (params = {}) => {
     setLoading(true); setError(null);
     try {
-      const data = await leadsService.getAll();
+      const data = await leadsService.getAll(params);
       setContacts(Array.isArray(data) ? data : data.results ?? []);
     } catch {
       setError('Failed to load contacts. Please try again.');
@@ -113,7 +119,18 @@ export default function Contacts() {
     }
   }, []);
 
-  useEffect(() => { fetchContacts(); }, [fetchContacts]);
+  useEffect(() => {
+    fetchContacts(filterTag ? { tag: filterTag } : {});
+  }, [fetchContacts, filterTag]);
+
+  useEffect(() => {
+    metaService.getTags().then((data) => {
+      setTags(Array.isArray(data) ? data : data.results ?? []);
+    }).catch(() => setTags([]));
+    metaService.getSavedViews().then((data) => {
+      setSavedViews(Array.isArray(data) ? data : data.results ?? []);
+    }).catch(() => setSavedViews([]));
+  }, []);
 
   // ── Sort handler ────────────────────────────────────────────────────────────
   const handleSort = (field, dir) => {
@@ -165,7 +182,24 @@ export default function Contacts() {
 
   const handleCreateLead = async (payload) => {
     await leadsService.create(payload);
-    await fetchContacts();
+    await fetchContacts(filterTag ? { tag: filterTag } : {});
+  };
+
+  const applySavedView = (view) => {
+    const filters = view.filters || {};
+    if (filters.status) setFilterStatus(filters.status);
+    if (filters.tag) setFilterTag(String(filters.tag));
+  };
+
+  const handleExport = async () => {
+    const blob = await leadsService.exportCsv();
+    const url = window.URL.createObjectURL(new Blob([blob]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'leads_export.csv');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   const handleLeadUpdate = (id, newStatus) => {
@@ -204,10 +238,20 @@ export default function Contacts() {
             <h1 className="text-2xl font-semibold text-gray-900">Contacts</h1>
             <p className="text-sm text-gray-500 mt-1">{contacts.length} total contacts</p>
           </div>
-          <button onClick={() => setIsAdding(true)}
+          <div className="flex items-center gap-2">
+            {canExportCsv && (
+              <button
+                onClick={handleExport}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Export CSV
+              </button>
+            )}
+            <button onClick={() => setIsAdding(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-[#FF7F40] px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95">
             <Plus className="h-4 w-4" /> Add Contact
           </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -217,6 +261,34 @@ export default function Contacts() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-10 rounded-lg border border-gray-200 bg-white pl-10 pr-4 text-sm outline-none ring-orange-200 transition-all focus:ring-2 focus:border-transparent" />
         </div>
+
+        {/* Saved views + tag filters */}
+        {(savedViews.length > 0 || tags.length > 0) && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {savedViews.map((view) => (
+              <button
+                key={view.id}
+                onClick={() => applySavedView(view)}
+                className="px-3 py-1 rounded-lg text-xs font-medium bg-orange-50 text-[#FF7F40] border border-orange-100"
+              >
+                {view.name}
+              </button>
+            ))}
+            {tags.map((tag) => (
+              <button
+                key={tag.id}
+                onClick={() => setFilterTag(filterTag === String(tag.id) ? '' : String(tag.id))}
+                className={`px-3 py-1 rounded-lg text-xs font-medium border ${
+                  filterTag === String(tag.id)
+                    ? 'bg-[#FF7F40] text-white border-[#FF7F40]'
+                    : 'bg-white text-gray-600 border-gray-200'
+                }`}
+              >
+                #{tag.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Filter + Sort */}
         <div className="flex flex-col sm:flex-row gap-3">

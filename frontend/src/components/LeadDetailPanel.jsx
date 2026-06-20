@@ -15,6 +15,7 @@ import leadsService, {
   LEAD_SOURCE_DISPLAY,
   LOST_REASON_DISPLAY,
 } from '../services/leadsService';
+import metaService, { PROPOSAL_STATUS_DISPLAY } from '../services/metaService';
 
 const formatDate = (dateString) => {
   if (!dateString) return '—';
@@ -95,6 +96,157 @@ function NoteItem({ note, leadId, onDelete }) {
         </div>
         <p className="text-xs text-gray-400 mt-1">{formatDate(note.created_at)}</p>
       </div>
+    </div>
+  );
+}
+
+function ProposalsSection({ leadId }) {
+  const [proposals, setProposals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState('');
+  const [status, setStatus] = useState('drafted');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await metaService.getProposalsForLead(leadId);
+      setProposals(Array.isArray(data) ? data : data.results ?? []);
+    } catch {
+      setProposals([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [leadId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      await metaService.createProposal({ lead: leadId, title: title.trim(), status });
+      setTitle('');
+      setStatus('drafted');
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="px-6 py-5 border-b border-gray-100">
+      <h3 className="text-sm font-semibold text-gray-900 mb-3">Proposals</h3>
+      <form onSubmit={handleCreate} className="flex gap-2 mb-3">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Proposal title"
+          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5"
+        />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="text-sm border border-gray-200 rounded-lg px-2">
+          {Object.entries(PROPOSAL_STATUS_DISPLAY).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+        <button type="submit" disabled={saving} className="text-xs bg-[#FF7F40] text-white px-3 py-1.5 rounded-lg">Add</button>
+      </form>
+      {loading ? (
+        <p className="text-xs text-gray-400">Loading proposals...</p>
+      ) : proposals.length === 0 ? (
+        <p className="text-xs text-gray-400">No proposals yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {proposals.map((p) => (
+            <div key={p.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-lg px-3 py-2">
+              <span className="font-medium text-gray-800">{p.title}</span>
+              <span className="text-xs text-gray-500">{PROPOSAL_STATUS_DISPLAY[p.status] ?? p.status}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TagsSection({ lead, onTagsChange }) {
+  const [allTags, setAllTags] = useState([]);
+  const [selected, setSelected] = useState((lead.tags ?? []).map((t) => t.id));
+  const [newTag, setNewTag] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    metaService.getTags().then((data) => {
+      setAllTags(Array.isArray(data) ? data : data.results ?? []);
+    }).catch(() => setAllTags([]));
+  }, []);
+
+  useEffect(() => {
+    setSelected((lead.tags ?? []).map((t) => t.id));
+  }, [lead.tags]);
+
+  const saveTags = async (tagIds) => {
+    setSaving(true);
+    try {
+      const updated = await leadsService.partialUpdate(lead.id, { tag_ids: tagIds });
+      onTagsChange?.(updated);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleTag = (tagId) => {
+    const next = selected.includes(tagId)
+      ? selected.filter((id) => id !== tagId)
+      : [...selected, tagId];
+    setSelected(next);
+    saveTags(next);
+  };
+
+  const handleCreateTag = async (e) => {
+    e.preventDefault();
+    if (!newTag.trim()) return;
+    const tag = await metaService.createTag({ name: newTag.trim() });
+    setAllTags((prev) => [...prev, tag]);
+    const next = [...selected, tag.id];
+    setSelected(next);
+    setNewTag('');
+    saveTags(next);
+  };
+
+  return (
+    <div className="px-6 py-4 border-b border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-gray-900">Tags</h3>
+        {saving && <span className="text-xs text-gray-400">Saving...</span>}
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {allTags.map((tag) => (
+          <button
+            key={tag.id}
+            type="button"
+            onClick={() => toggleTag(tag.id)}
+            className={`text-xs px-2 py-0.5 rounded-full border ${
+              selected.includes(tag.id)
+                ? 'bg-orange-50 text-[#FF7F40] border-orange-200'
+                : 'bg-gray-50 text-gray-600 border-gray-200'
+            }`}
+            style={selected.includes(tag.id) ? { borderColor: tag.color } : undefined}
+          >
+            {tag.name}
+          </button>
+        ))}
+      </div>
+      <form onSubmit={handleCreateTag} className="flex gap-2">
+        <input
+          value={newTag}
+          onChange={(e) => setNewTag(e.target.value)}
+          placeholder="New tag"
+          className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1"
+        />
+        <button type="submit" className="text-xs text-[#FF7F40] font-medium">+ Add</button>
+      </form>
     </div>
   );
 }
@@ -190,18 +342,19 @@ function AddNoteForm({ leadId, onAdded }) {
 
 export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
   const [notes, setNotes] = useState([]);
+  const [leadState, setLeadState] = useState(lead);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
 
-  const whatsappUrl = buildWhatsAppUrl(lead);
+  useEffect(() => { setLeadState(lead); }, [lead]);
 
   const fetchNotes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await noteService.getAll(lead.id);
+      const data = await noteService.getAll(leadState.id);
       const list = Array.isArray(data) ? data : data.results ?? [];
       setNotes(list);
     } catch {
@@ -209,7 +362,7 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
     } finally {
       setLoading(false);
     }
-  }, [lead.id]);
+  }, [leadState.id]);
 
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
@@ -223,17 +376,19 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
     setStatusMenuOpen(false);
     setChangingStatus(true);
     try {
-      await leadsService.partialUpdate(lead.id, { status: newStatus });
-      if (onUpdate) onUpdate(lead.id, newStatus);
+      await leadsService.partialUpdate(leadState.id, { status: newStatus });
+      setLeadState((prev) => ({ ...prev, status: newStatus }));
+      if (onUpdate) onUpdate(leadState.id, newStatus);
     } catch { /* ignore */ } finally {
       setChangingStatus(false);
     }
   };
 
-  const otherStatuses = Object.entries(LEAD_STATUS_DISPLAY).filter(([key]) => key !== lead.status);
-  const dealLabel = lead.deal_value
-    ? `${lead.deal_currency === 'USD' ? '$' : 'Rs '}${Number(lead.deal_value).toLocaleString()}`
+  const otherStatuses = Object.entries(LEAD_STATUS_DISPLAY).filter(([key]) => key !== leadState.status);
+  const dealLabel = leadState.deal_value
+    ? `${leadState.deal_currency === 'USD' ? '$' : 'Rs '}${Number(leadState.deal_value).toLocaleString()}`
     : null;
+  const whatsappUrl = buildWhatsAppUrl(leadState);
 
   return (
     <>
@@ -242,11 +397,11 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
         <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-11 w-11 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-[#FF7F40] font-semibold text-sm">
-              {lead.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+              {leadState.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
             </div>
             <div>
-              <h2 className="text-base font-semibold text-gray-900">{lead.name}</h2>
-              {lead.company && <p className="text-xs text-gray-500">{lead.company}</p>}
+              <h2 className="text-base font-semibold text-gray-900">{leadState.name}</h2>
+              {leadState.company && <p className="text-xs text-gray-500">{leadState.company}</p>}
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100">
@@ -262,10 +417,10 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
                 <button
                   onClick={() => setStatusMenuOpen(!statusMenuOpen)}
                   disabled={changingStatus}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${STATUS_COLORS[lead.status] ?? 'bg-gray-100 text-gray-700'}`}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${STATUS_COLORS[leadState.status] ?? 'bg-gray-100 text-gray-700'}`}
                 >
                   {changingStatus && <Loader2 className="h-3 w-3 animate-spin" />}
-                  {LEAD_STATUS_DISPLAY[lead.status] ?? lead.status}
+                  {LEAD_STATUS_DISPLAY[leadState.status] ?? leadState.status}
                   <ChevronDown className="h-3 w-3" />
                 </button>
                 {statusMenuOpen && (
@@ -287,36 +442,36 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
                 <span className="text-gray-700 font-medium">{dealLabel}</span>
               </div>
             )}
-            {lead.expected_close_date && (
+            {leadState.expected_close_date && (
               <div className="flex items-center gap-2.5 text-sm">
                 <Calendar className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-700">Close: {new Date(lead.expected_close_date).toLocaleDateString()}</span>
+                <span className="text-gray-700">Close: {new Date(leadState.expected_close_date).toLocaleDateString()}</span>
               </div>
             )}
-            {lead.assigned_to_name && (
+            {leadState.assigned_to_name && (
               <div className="flex items-center gap-2.5 text-sm">
                 <User className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-700">Assigned: {lead.assigned_to_name}</span>
+                <span className="text-gray-700">Assigned: {leadState.assigned_to_name}</span>
               </div>
             )}
-            {lead.lost_reason && (
+            {leadState.lost_reason && (
               <div className="flex items-center gap-2.5 text-sm">
                 <AlertCircle className="h-4 w-4 text-rose-400" />
-                <span className="text-rose-600">{LOST_REASON_DISPLAY[lead.lost_reason]}</span>
+                <span className="text-rose-600">{LOST_REASON_DISPLAY[leadState.lost_reason]}</span>
               </div>
             )}
 
             <div className="space-y-2.5">
-              {lead.email && (
+              {leadState.email && (
                 <div className="flex items-center gap-2.5 text-sm">
                   <Mail className="h-4 w-4 text-gray-400" />
-                  <a href={`mailto:${lead.email}`} className="text-gray-700 hover:text-[#FF7F40] truncate">{lead.email}</a>
+                  <a href={`mailto:${leadState.email}`} className="text-gray-700 hover:text-[#FF7F40] truncate">{leadState.email}</a>
                 </div>
               )}
-              {lead.phone && (
+              {leadState.phone && (
                 <div className="flex items-center gap-2.5 text-sm">
                   <Phone className="h-4 w-4 text-gray-400" />
-                  <a href={`tel:${lead.phone}`} className="text-gray-700 hover:text-[#FF7F40]">{lead.phone}</a>
+                  <a href={`tel:${leadState.phone}`} className="text-gray-700 hover:text-[#FF7F40]">{leadState.phone}</a>
                 </div>
               )}
               {whatsappUrl && (
@@ -332,14 +487,20 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
               )}
               <div className="flex items-center gap-2.5 text-sm">
                 <Tag className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-700">{LEAD_SOURCE_DISPLAY[lead.source] ?? lead.source}</span>
+                <span className="text-gray-700">{LEAD_SOURCE_DISPLAY[leadState.source] ?? leadState.source}</span>
               </div>
               <div className="flex items-center gap-2.5 text-sm">
                 <Clock className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-500">Added {formatDate(lead.created_at)}</span>
+                <span className="text-gray-500">Added {formatDate(leadState.created_at)}</span>
               </div>
             </div>
           </div>
+
+          <TagsSection
+            lead={leadState}
+            onTagsChange={(updated) => setLeadState(updated)}
+          />
+          <ProposalsSection leadId={leadState.id} />
 
           <div className="px-6 py-5">
             <h3 className="text-sm font-semibold text-gray-900 mb-4">
@@ -347,7 +508,7 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
               {notes.length > 0 && <span className="ml-2 text-xs font-normal text-gray-400">({notes.length})</span>}
             </h3>
             <div className="mb-5">
-              <AddNoteForm leadId={lead.id} onAdded={(note) => setNotes((prev) => [note, ...prev])} />
+              <AddNoteForm leadId={leadState.id} onAdded={(note) => setNotes((prev) => [note, ...prev])} />
             </div>
             {loading ? (
               <div className="space-y-4">
@@ -366,7 +527,7 @@ export default function LeadDetailPanel({ lead, onClose, onUpdate }) {
                 <NoteItem
                   key={note.id}
                   note={note}
-                  leadId={lead.id}
+                  leadId={leadState.id}
                   onDelete={(id) => setNotes((prev) => prev.filter((n) => n.id !== id))}
                 />
               ))

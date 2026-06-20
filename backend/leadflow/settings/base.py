@@ -32,6 +32,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     'apps.users',
+    'apps.workspaces',
     'apps.leads',
     'apps.reminders',
     'apps.analytics',

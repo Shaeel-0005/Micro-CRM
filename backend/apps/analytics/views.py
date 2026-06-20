@@ -25,6 +25,7 @@ except ImportError:
 
 from apps.leads.models import Lead
 from apps.reminders.models import Reminder
+from apps.workspaces.services import leads_queryset_for_user
 
 OPEN_STATUSES = ['new_lead', 'discovery_call', 'proposal_sent', 'negotiation']
 
@@ -66,7 +67,7 @@ class AnalyticsDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        leads = Lead.objects.filter(owner=request.user)
+        leads = leads_queryset_for_user(request.user)
 
         if PANDAS_AVAILABLE and leads.exists():
             return self._pandas_response(leads, request.user)

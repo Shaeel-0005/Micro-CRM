@@ -58,10 +58,10 @@ const LoginPage = () => {
   try {
     const data = await authAPI.login(formData.username, formData.password);
 
-    // Store tokens + update global auth state
-    login(
+    // Store tokens + refresh full profile (workspace + permissions)
+    await login(
       { access: data.access, refresh: data.refresh },
-      { username: formData.username }  // ← simple fallback, no extra API call
+      { username: formData.username }
     );
 
     navigate('/dashboard');

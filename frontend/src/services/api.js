@@ -80,14 +80,10 @@ export const authAPI = {
     localStorage.removeItem('refresh_token');
   },
 
-  isAuthenticated: () => {
-    return !!localStorage.getItem('access_token');
+  whoami: async () => {
+    const response = await api.get('/auth/whoami/');
+    return response.data;
   },
-
-  // getCurrentUser: async () => {
-  //   const response = await api.get('/auth/user/');
-  //   return response.data;
-  // },
 };
 export const wakeUpBackend = () => {
   axios.get(`${API_URL}/health/`).catch(() => {});

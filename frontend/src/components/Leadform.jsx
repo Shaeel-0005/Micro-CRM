@@ -5,6 +5,8 @@ import {
   LEAD_SOURCE_DISPLAY,
   LOST_REASON_DISPLAY,
 } from '../services/leadsService';
+import workspaceService from '../services/workspaceService';
+import { useAuth } from '../context/AuthContext';
 
 const INITIAL_FORM = {
   name: '',
@@ -17,17 +19,34 @@ const INITIAL_FORM = {
   deal_currency: 'PKR',
   expected_close_date: '',
   lost_reason: '',
+  assigned_to: '',
 };
 
-export default function LeadForm({ isOpen, onClose, onSubmit, currentUser }) {
+export default function LeadForm({ isOpen, onClose, onSubmit }) {
+  const { user, canAssignLeads } = useAuth();
   const [formData, setFormData] = useState(INITIAL_FORM);
+  const [members, setMembers] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    if (isOpen) setShowSuccess(false);
-  }, [isOpen]);
+    if (isOpen) {
+      setShowSuccess(false);
+      setFormData((prev) => ({
+        ...INITIAL_FORM,
+        assigned_to: user?.id ? String(user.id) : '',
+      }));
+    }
+  }, [isOpen, user?.id]);
+
+  useEffect(() => {
+    if (!isOpen || !canAssignLeads) return;
+    workspaceService.getMembers().then((data) => {
+      const list = Array.isArray(data) ? data : data.results ?? [];
+      setMembers(list);
+    }).catch(() => setMembers([]));
+  }, [isOpen, canAssignLeads]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -66,7 +85,7 @@ export default function LeadForm({ isOpen, onClose, onSubmit, currentUser }) {
         source: formData.source,
         deal_currency: formData.deal_currency,
         expected_close_date: formData.expected_close_date || undefined,
-        assigned_to: currentUser?.id,
+        assigned_to: formData.assigned_to ? Number(formData.assigned_to) : user?.id,
       };
       if (formData.deal_value) payload.deal_value = formData.deal_value;
       if (formData.status === 'lost') payload.lost_reason = formData.lost_reason;
@@ -206,6 +225,25 @@ export default function LeadForm({ isOpen, onClose, onSubmit, currentUser }) {
               <input type="date" name="expected_close_date" value={formData.expected_close_date} onChange={handleChange} disabled={isSubmitting}
                 className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-slate-200 outline-none" />
             </div>
+
+            {canAssignLeads && members.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Assign To</label>
+                <select
+                  name="assigned_to"
+                  value={formData.assigned_to}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-lg bg-slate-50"
+                >
+                  {members.map((m) => (
+                    <option key={m.id} value={m.user}>
+                      {m.username} ({m.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 bg-slate-50">
