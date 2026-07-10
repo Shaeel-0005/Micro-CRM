@@ -42,6 +42,7 @@ def get_active_membership(user):
         WorkspaceMembership.objects
         .filter(user=user, is_active=True)
         .select_related('workspace')
+        .order_by('-joined_at')
         .first()
     )
 
@@ -144,6 +145,14 @@ def accept_invite(token, user):
         raise ValueError('Invite has expired')
     if user.email.lower() != invite.email.lower():
         raise ValueError('Invite email does not match your account')
+
+    # A user should only ever have one active membership at a time.
+    # Deactivate any existing active memberships (e.g. their own
+    # auto-created personal workspace from signup) before activating
+    # the one they're accepting now.
+    WorkspaceMembership.objects.filter(
+        user=user, is_active=True
+    ).exclude(workspace=invite.workspace).update(is_active=False)
 
     membership, created = WorkspaceMembership.objects.update_or_create(
         workspace=invite.workspace,

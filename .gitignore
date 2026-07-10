@@ -51,3 +51,4 @@ Thumbs.db
 .history/
 .project-brain/
 .backend/test_db.sqlite3
+.fakeprofiles
