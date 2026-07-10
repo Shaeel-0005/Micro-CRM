@@ -9,7 +9,8 @@ from datetime import timedelta
 from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / '.env')
 # ── Security ──────────────────────────────────────────────────────────────────
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-insecure-key')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
